@@ -1,0 +1,467 @@
+---
+title: URDF Format Explained
+description: Detailed explanation of the Unified Robot Description Format for robot modeling
+sidebar_position: 2
+---
+
+# URDF Format Explained
+
+## Understanding URDF
+
+The Unified Robot Description Format (URDF) is an XML-based format that describes robot models in ROS. It provides a complete specification of a robot's physical and kinematic properties, including its links, joints, visual appearance, collision properties, and inertial characteristics. URDF is fundamental to robotics simulation, visualization, motion planning, and control.
+
+According to Correll (2016), URDF serves as the standard for robot modeling in ROS, enabling the creation of complex robotic systems by defining their structure and properties in a standardized format (Correll, N. (2016). *Introduction to Autonomous Robots*. CreateSpace Independent Publishing Platform).
+
+## URDF Structure and Components
+
+### The Robot Element
+
+Every URDF file begins with a `<robot>` element that contains the entire robot definition:
+
+```xml
+<?xml version="1.0"?>
+<robot name="my_robot" xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <!-- Robot components go here -->
+</robot>
+```
+
+The `name` attribute uniquely identifies the robot, and the optional `xmlns:xacro` attribute enables XACRO macros if used.
+
+### Links: The Building Blocks
+
+Links represent the rigid bodies of a robot. Each link can have multiple properties:
+
+```xml
+<link name="link_name">
+  <!-- Visual properties define how the link appears -->
+  <visual>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <geometry>
+      <box size="1 1 1"/>
+    </geometry>
+    <material name="red">
+      <color rgba="1 0 0 1"/>
+    </material>
+  </visual>
+
+  <!-- Collision properties define how the link interacts -->
+  <collision>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <geometry>
+      <box size="1 1 1"/>
+    </geometry>
+  </collision>
+
+  <!-- Inertial properties define physical characteristics -->
+  <inertial>
+    <mass value="1.0"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <inertia ixx="0.1" ixy="0.0" ixz="0.0" iyy="0.1" iyz="0.0" izz="0.1"/>
+  </inertial>
+</link>
+```
+
+#### Visual Elements
+
+Visual elements define how a link appears in visualization tools:
+
+- **origin**: Position and orientation relative to the link frame
+- **geometry**: Shape of the visual element (box, cylinder, sphere, mesh)
+- **material**: Color and appearance properties
+
+#### Collision Elements
+
+Collision elements define how a link interacts in collision detection:
+
+- **origin**: Position and orientation relative to the link frame
+- **geometry**: Shape used for collision detection (often simpler than visual geometry)
+
+#### Inertial Elements
+
+Inertial elements define the physical properties for dynamics simulation:
+
+- **mass**: Mass of the link in kilograms
+- **origin**: Center of mass location
+- **inertia**: Inertia tensor values (ixx, ixy, ixz, iyy, iyz, izz)
+
+### Joints: Connecting the Links
+
+Joints define the connections between links and specify the allowed motion:
+
+```xml
+<joint name="joint_name" type="joint_type">
+  <parent link="parent_link_name"/>
+  <child link="child_link_name"/>
+  <origin xyz="x y z" rpy="roll pitch yaw"/>
+  <axis xyz="x y z"/>
+  <limit lower="-1.57" upper="1.57" effort="10.0" velocity="1.0"/>
+  <dynamics damping="0.1" friction="0.0"/>
+</joint>
+```
+
+#### Joint Types
+
+1. **revolute**: Rotational joint with limited range of motion
+2. **continuous**: Rotational joint without limits
+3. **prismatic**: Linear sliding joint with limits
+4. **fixed**: No relative motion between links
+5. **floating**: 6 DOF motion (rarely used)
+6. **planar**: Motion in a plane (rarely used)
+
+### Materials and Colors
+
+Materials define the visual appearance of links:
+
+```xml
+<material name="material_name">
+  <color rgba="red green blue alpha"/>
+  <texture filename="path/to/texture.png"/>
+</material>
+
+<!-- Or reference a material from another file -->
+<material name="red">
+  <color rgba="1 0 0 1"/>
+</material>
+```
+
+## Complete URDF Example
+
+Here's a complete URDF example for a simple differential drive robot:
+
+```xml
+<?xml version="1.0"?>
+<robot name="diff_drive_robot">
+
+  <!-- Base link - the main body of the robot -->
+  <link name="base_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.5 0.3 0.15"/>
+      </geometry>
+      <material name="blue">
+        <color rgba="0 0 1 1"/>
+      </material>
+    </visual>
+
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.5 0.3 0.15"/>
+      </geometry>
+    </collision>
+
+    <inertial>
+      <mass value="10.0"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia ixx="0.4" ixy="0.0" ixz="0.0" iyy="0.8" iyz="0.0" izz="1.1"/>
+    </inertial>
+  </link>
+
+  <!-- Left wheel -->
+  <joint name="left_wheel_joint" type="continuous">
+    <parent link="base_link"/>
+    <child link="left_wheel"/>
+    <origin xyz="0 0.2 -0.05" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <dynamics damping="0.1" friction="0.0"/>
+  </joint>
+
+  <link name="left_wheel">
+    <visual>
+      <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+      <geometry>
+        <cylinder radius="0.05" length="0.05"/>
+      </geometry>
+      <material name="black">
+        <color rgba="0.1 0.1 0.1 1"/>
+      </material>
+    </visual>
+
+    <collision>
+      <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+      <geometry>
+        <cylinder radius="0.05" length="0.05"/>
+      </geometry>
+    </collision>
+
+    <inertial>
+      <mass value="0.5"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia ixx="0.001" ixy="0.0" ixz="0.0" iyy="0.001" iyz="0.0" izz="0.002"/>
+    </inertial>
+  </link>
+
+  <!-- Right wheel -->
+  <joint name="right_wheel_joint" type="continuous">
+    <parent link="base_link"/>
+    <child link="right_wheel"/>
+    <origin xyz="0 -0.2 -0.05" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <dynamics damping="0.1" friction="0.0"/>
+  </joint>
+
+  <link name="right_wheel">
+    <visual>
+      <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+      <geometry>
+        <cylinder radius="0.05" length="0.05"/>
+      </geometry>
+      <material name="black">
+        <color rgba="0.1 0.1 0.1 1"/>
+      </material>
+    </visual>
+
+    <collision>
+      <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+      <geometry>
+        <cylinder radius="0.05" length="0.05"/>
+      </geometry>
+    </collision>
+
+    <inertial>
+      <mass value="0.5"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia ixx="0.001" ixy="0.0" ixz="0.0" iyy="0.001" iyz="0.0" izz="0.002"/>
+    </inertial>
+  </link>
+
+  <!-- Add a caster wheel for stability -->
+  <joint name="caster_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="caster_wheel"/>
+    <origin xyz="-0.2 0 -0.05" rpy="0 0 0"/>
+  </joint>
+
+  <link name="caster_wheel">
+    <visual>
+      <geometry>
+        <sphere radius="0.04"/>
+      </geometry>
+      <material name="gray">
+        <color rgba="0.5 0.5 0.5 1"/>
+      </material>
+    </visual>
+
+    <collision>
+      <geometry>
+        <sphere radius="0.04"/>
+      </geometry>
+    </collision>
+
+    <inertial>
+      <mass value="0.1"/>
+      <inertia ixx="0.00001" ixy="0.0" ixz="0.0" iyy="0.00001" iyz="0.0" izz="0.00001"/>
+    </inertial>
+  </link>
+
+  <!-- Define materials at the end -->
+  <material name="blue">
+    <color rgba="0 0 1 1"/>
+  </material>
+  <material name="black">
+    <color rgba="0.1 0.1 0.1 1"/>
+  </material>
+  <material name="gray">
+    <color rgba="0.5 0.5 0.5 1"/>
+  </material>
+</robot>
+```
+
+## URDF Best Practices
+
+### Structure and Organization
+
+1. **Tree Structure**: URDF must form a tree structure (no loops) with a single base link
+2. **Naming Conventions**: Use descriptive names that clearly indicate the link or joint function
+3. **Consistent Units**: Use consistent units throughout (typically meters for distances, kilograms for mass)
+4. **Proper Inertial Values**: Include realistic mass and inertia values for accurate simulation
+
+### Visual and Collision Separation
+
+```xml
+<!-- Use simple collision geometry for performance -->
+<collision>
+  <geometry>
+    <box size="0.5 0.3 0.15"/>
+  </geometry>
+</collision>
+
+<!-- Use detailed visual geometry for appearance -->
+<visual>
+  <geometry>
+    <mesh filename="package://my_robot/meshes/detailed_model.dae"/>
+  </geometry>
+</visual>
+```
+
+### Inertial Properties
+
+Accurate inertial properties are crucial for physics simulation:
+
+```xml
+<inertial>
+  <!-- Mass in kilograms -->
+  <mass value="1.0"/>
+
+  <!-- Origin of the center of mass -->
+  <origin xyz="0.01 0 0" rpy="0 0 0"/>
+
+  <!-- Inertia tensor (for a box: Ixx=1/12*m*(h²+d²)) -->
+  <inertia
+    ixx="0.1" ixy="0.0" ixz="0.0"
+    iyy="0.1" iyz="0.0"
+    izz="0.1"/>
+</inertial>
+```
+
+## URDF Tools and Utilities
+
+### URDF Validation
+
+ROS provides tools to validate URDF files:
+
+```bash
+# Check if a URDF file is valid
+check_urdf /path/to/robot.urdf
+
+# Parse and display robot information
+gz sdf -p /path/to/robot.urdf
+```
+
+### Visualization
+
+```bash
+# View the robot in RViz
+ros2 run rviz2 rviz2
+
+# Then add RobotModel display and set the robot description parameter
+```
+
+### TF Tree Analysis
+
+```bash
+# View the transform tree
+ros2 run tf2_tools view_frames
+
+# Echo specific transforms
+ros2 run tf2_ros tf2_echo base_link right_wheel
+```
+
+## Common URDF Patterns
+
+### Fixed Joints for Sensor Mounting
+
+```xml
+<joint name="camera_mount_joint" type="fixed">
+  <parent link="base_link"/>
+  <child link="camera_link"/>
+  <origin xyz="0.2 0 0.1" rpy="0 0 0"/>
+</joint>
+
+<link name="camera_link">
+  <!-- Camera has no physical properties, just a frame -->
+</link>
+```
+
+### Mimic Joints for Symmetric Motion
+
+While not directly supported in URDF, mimic joints can be implemented through controllers:
+
+```xml
+<!-- Define joints normally, then use a controller to make one follow the other -->
+<joint name="left_gripper_joint" type="prismatic">
+  <parent link="gripper_base"/>
+  <child link="left_gripper"/>
+  <limit lower="0" upper="0.05" effort="10" velocity="0.1"/>
+</joint>
+
+<joint name="right_gripper_joint" type="prismatic">
+  <parent link="gripper_base"/>
+  <child link="right_gripper"/>
+  <limit lower="0" upper="0.05" effort="10" velocity="0.1"/>
+</joint>
+```
+
+## Troubleshooting Common Issues
+
+### Self-Collisions
+
+Configure collision filters to avoid self-collisions between adjacent links:
+
+```xml
+<!-- In the robot description, specify which links should not collide -->
+<disable_collisions link1="link_a" link2="link_b" reason="Adjacent"/>
+```
+
+### Joint Limits
+
+Always specify appropriate joint limits:
+
+```xml
+<joint name="arm_joint" type="revolute">
+  <!-- ... -->
+  <limit lower="-1.57" upper="1.57" effort="10.0" velocity="1.0"/>
+</joint>
+```
+
+### Mass and Inertia Issues
+
+For links without mass, use very small values rather than zero:
+
+```xml
+<inertial>
+  <mass value="0.001"/>  <!-- Never use 0 -->
+  <inertia ixx="0.0001" ixy="0" ixz="0" iyy="0.0001" iyz="0" izz="0.0001"/>
+</inertial>
+```
+
+## Integration with ROS 2
+
+### Robot State Publisher
+
+URDF files are used by the Robot State Publisher to broadcast transforms:
+
+```python
+import rclpy
+from rclpy.node import Node
+from sensor_msgs.msg import JointState
+from tf2_ros import TransformBroadcaster
+from geometry_msgs.msg import TransformStamped
+
+class RobotStatePublisher(Node):
+    def __init__(self):
+        super().__init__('robot_state_publisher')
+
+        # Load URDF and set up transform broadcasting
+        # This node reads joint states and publishes transforms
+```
+
+### Launch Integration
+
+URDF files can be loaded in launch files:
+
+```python
+from launch import LaunchDescription
+from launch_ros.actions import Node
+from ament_index_python.packages import get_package_share_path
+
+def generate_launch_description():
+    urdf_path = get_package_share_path('my_robot_description') / 'urdf' / 'robot.urdf'
+
+    return LaunchDescription([
+        Node(
+            package='robot_state_publisher',
+            executable='robot_state_publisher',
+            parameters=[{'robot_description': open(urdf_path).read()}]
+        )
+    ])
+```
+
+## Summary
+
+URDF is a powerful and flexible format for describing robot models in ROS 2. Understanding its structure, components, and best practices is essential for creating accurate and functional robot descriptions. Proper use of URDF enables effective simulation, visualization, and control of robotic systems. The format's XML-based structure provides a clear and standardized way to define robot kinematics, dynamics, and appearance, making it an indispensable tool in robotics development.
+
+## References
+
+Correll, N. (2016). *Introduction to Autonomous Robots*. CreateSpace Independent Publishing Platform.

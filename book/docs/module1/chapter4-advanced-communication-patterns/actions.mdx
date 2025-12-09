@@ -1,0 +1,879 @@
+---
+title: Action Patterns in ROS 2
+description: Understanding and implementing action-based communication patterns for long-running operations
+sidebar_position: 2
+---
+
+# Action Patterns in ROS 2
+
+## Introduction to Actions
+
+Actions in ROS 2 provide a communication pattern specifically designed for long-running operations that require feedback, goal management, and cancellation capabilities. Unlike services, which offer a simple request-response pattern, actions are ideal for tasks that take significant time to complete, such as navigation to a goal pose, manipulation of objects, or calibration procedures.
+
+According to the ROS 2 design documentation, actions address the limitations of services when dealing with operations that need to report progress, can be cancelled, or require detailed results (ROS.org, 2023). Actions are fundamental to creating responsive and robust robotic applications that can handle complex, multi-step tasks.
+
+## Action Architecture
+
+### Action Components
+
+An action in ROS 2 consists of three message types:
+
+1. **Goal**: Defines the requested operation with parameters
+2. **Feedback**: Provides periodic updates during execution
+3. **Result**: Contains the final outcome of the operation
+
+### Action Client-Server Interaction
+
+The action communication follows a specific pattern:
+
+1. **Goal Request**: Client sends a goal to the server
+2. **Goal Acceptance/Rejection**: Server responds with acceptance or rejection
+3. **Feedback Loop**: Server provides periodic feedback during execution
+4. **Goal Cancellation**: Client can request cancellation at any time
+5. **Result Delivery**: Server sends final result upon completion
+
+### Action State Machine
+
+Actions follow a state machine that tracks the progress of a goal:
+
+- **PENDING**: Goal accepted but not yet executing
+- **ACTIVE**: Goal is currently executing
+- **CANCELING**: Goal cancellation requested
+- **SUCCEEDED**: Goal completed successfully
+- **CANCELED**: Goal was cancelled
+- **ABORTED**: Goal execution failed
+
+## Action Message Definitions
+
+### Creating Action Definition Files
+
+Action definitions are created in `.action` files with a specific format:
+
+```
+# Fibonacci.action
+# Goal definition
+int32 order
+---
+# Result definition
+int32[] sequence
+---
+# Feedback definition
+int32[] sequence
+```
+
+The three sections are separated by `---`:
+- First section: Goal message fields
+- Second section: Result message fields
+- Third section: Feedback message fields
+
+### Standard Action Types
+
+ROS 2 provides several standard action types:
+
+- `nav2_msgs/action/NavigateToPose`: Navigation to a specific pose
+- `control_msgs/action/FollowJointTrajectory`: Following a joint trajectory
+- `move_base_msgs/action/MoveBase`: Basic navigation action
+- `example_interfaces/action/Fibonacci`: Example action for learning
+
+## Action Server Implementation
+
+### Basic Action Server
+
+```python
+import rclpy
+from rclpy.action import ActionServer, CancelResponse, GoalResponse
+from rclpy.node import Node
+from example_interfaces.action import Fibonacci
+
+
+class FibonacciActionServer(Node):
+    def __init__(self):
+        super().__init__('fibonacci_action_server')
+
+        # Create action server with callbacks
+        self._action_server = ActionServer(
+            self,
+            Fibonacci,
+            'fibonacci',
+            execute_callback=self.execute_callback,
+            goal_callback=self.goal_callback,
+            cancel_callback=self.cancel_callback
+        )
+
+        self.get_logger().info('Fibonacci action server initialized')
+
+    def goal_callback(self, goal_request):
+        """
+        Callback for handling incoming goal requests.
+
+        Args:
+            goal_request: The incoming goal request message
+
+        Returns:
+            GoalResponse.ACCEPT or GoalResponse.REJECT
+        """
+        self.get_logger().info(f'Received goal request with order: {goal_request.order}')
+
+        # Validate the goal request
+        if goal_request.order <= 0:
+            self.get_logger().warn('Invalid order requested, rejecting goal')
+            return GoalResponse.REJECT
+
+        # Accept all valid goals
+        return GoalResponse.ACCEPT
+
+    def cancel_callback(self, goal_handle):
+        """
+        Callback for handling goal cancellation requests.
+
+        Args:
+            goal_handle: The goal handle for the goal being cancelled
+
+        Returns:
+            CancelResponse.ACCEPT or CancelResponse.REJECT
+        """
+        self.get_logger().info('Received cancel request')
+        # Accept all cancel requests
+        return CancelResponse.ACCEPT
+
+    def execute_callback(self, goal_handle):
+        """
+        Callback for executing the action goal.
+
+        Args:
+            goal_handle: The goal handle for the executing goal
+
+        Returns:
+            The result message
+        """
+        self.get_logger().info('Executing goal...')
+
+        # Create feedback and result messages
+        feedback_msg = Fibonacci.Feedback()
+        result_msg = Fibonacci.Result()
+
+        # Initialize the Fibonacci sequence
+        feedback_msg.sequence = [0, 1]
+
+        # Handle special cases
+        if goal_handle.request.order <= 1:
+            if goal_handle.request.order == 0:
+                result_msg.sequence = [0]
+            else:
+                result_msg.sequence = [0, 1]
+            goal_handle.succeed()
+            return result_msg
+
+        # Generate the Fibonacci sequence up to the requested order
+        for i in range(1, goal_handle.request.order):
+            # Check if the goal has been cancelled
+            if goal_handle.is_cancel_requested:
+                self.get_logger().info('Goal cancelled')
+                result_msg.sequence = feedback_msg.sequence
+                goal_handle.canceled()
+                return result_msg
+
+            # Compute the next number in the sequence
+            next_num = feedback_msg.sequence[i] + feedback_msg.sequence[i-1]
+            feedback_msg.sequence.append(next_num)
+
+            # Publish feedback to let the client know about progress
+            goal_handle.publish_feedback(feedback_msg)
+
+            # Simulate processing time (in real applications, this would be actual work)
+            from time import sleep
+            sleep(0.1)
+
+        # Complete the goal successfully
+        goal_handle.succeed()
+        result_msg.sequence = feedback_msg.sequence
+
+        self.get_logger().info('Goal completed successfully')
+        return result_msg
+
+
+def main(args=None):
+    rclpy.init(args=args)
+
+    action_server = FibonacciActionServer()
+
+    try:
+        rclpy.spin(action_server)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        action_server.destroy_node()
+        rclpy.shutdown()
+```
+
+### Advanced Action Server with Multiple Goals
+
+```python
+import rclpy
+from rclpy.action import ActionServer, CancelResponse, GoalResponse
+from rclpy.node import Node
+from example_interfaces.action import NavigateToPose
+from geometry_msgs.msg import Pose, Point, Quaternion
+from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy
+import threading
+import time
+
+
+class NavigationActionServer(Node):
+    def __init__(self):
+        super().__init__('navigation_action_server')
+
+        # Create action server
+        self._action_server = ActionServer(
+            self,
+            NavigateToPose,
+            'navigate_to_pose',
+            execute_callback=self.execute_callback,
+            goal_callback=self.goal_callback,
+            cancel_callback=self.cancel_callback
+        )
+
+        # Create publisher for robot pose (for simulation)
+        qos_profile = QoSProfile(
+            depth=10,
+            reliability=ReliabilityPolicy.RELIABLE,
+            durability=DurabilityPolicy.VOLATILE
+        )
+        self.pose_publisher = self.create_publisher(Pose, 'robot_pose', qos_profile)
+
+        # Store current robot pose
+        self.current_pose = Pose()
+        self.current_pose.position.x = 0.0
+        self.current_pose.position.y = 0.0
+        self.current_pose.position.z = 0.0
+        self.current_pose.orientation.x = 0.0
+        self.current_pose.orientation.y = 0.0
+        self.current_pose.orientation.z = 0.0
+        self.current_pose.orientation.w = 1.0
+
+        # Store active goals
+        self.active_goals = {}
+        self.goals_lock = threading.Lock()
+
+        self.get_logger().info('Navigation action server initialized')
+
+    def goal_callback(self, goal_request):
+        """
+        Callback for handling incoming navigation goal requests.
+        """
+        self.get_logger().info(
+            f'Received navigation goal: ({goal_request.pose.position.x}, '
+            f'{goal_request.pose.position.y})'
+        )
+
+        # Check if the goal is valid (e.g., not too far away)
+        distance = self.calculate_distance(
+            self.current_pose.position,
+            goal_request.pose.position
+        )
+
+        if distance > 100.0:  # Maximum navigation distance of 100 meters
+            self.get_logger().warn('Navigation goal too far away, rejecting')
+            return GoalResponse.REJECT
+
+        return GoalResponse.ACCEPT
+
+    def cancel_callback(self, goal_handle):
+        """
+        Callback for handling goal cancellation requests.
+        """
+        self.get_logger().info('Received navigation cancel request')
+        return CancelResponse.ACCEPT
+
+    def execute_callback(self, goal_handle):
+        """
+        Callback for executing the navigation goal.
+        """
+        self.get_logger().info('Starting navigation execution')
+
+        # Add to active goals
+        with self.goals_lock:
+            goal_id = goal_handle.goal_id.uuid
+            self.active_goals[goal_id] = goal_handle
+
+        # Create feedback and result messages
+        feedback_msg = NavigateToPose.Feedback()
+        result_msg = NavigateToPose.Result()
+
+        # Get the target pose
+        target_pose = goal_handle.request.pose
+
+        # Simulate navigation to target
+        start_pose = Pose()
+        start_pose.position = self.current_pose.position
+        start_pose.orientation = self.current_pose.orientation
+
+        # Calculate navigation path (simplified as straight line)
+        distance = self.calculate_distance(
+            start_pose.position,
+            target_pose.position
+        )
+
+        # Navigation parameters
+        navigation_speed = 0.5  # meters per second
+        step_size = 0.1  # meters per step
+        step_time = step_size / navigation_speed  # seconds per step
+
+        # Calculate direction vector
+        direction = Point()
+        direction.x = target_pose.position.x - start_pose.position.x
+        direction.y = target_pose.position.y - start_pose.position.y
+        direction.z = target_pose.position.z - start_pose.position.z
+
+        # Normalize direction vector
+        magnitude = (direction.x**2 + direction.y**2 + direction.z**2)**0.5
+        if magnitude > 0:
+            direction.x /= magnitude
+            direction.y /= magnitude
+            direction.z /= magnitude
+
+        # Navigate step by step
+        steps = int(distance / step_size)
+        for step in range(steps):
+            # Check if goal was cancelled
+            if goal_handle.is_cancel_requested:
+                self.get_logger().info('Navigation cancelled')
+                with self.goals_lock:
+                    del self.active_goals[goal_id]
+                goal_handle.canceled()
+                result_msg.error_code = 1  # Cancelled
+                return result_msg
+
+            # Calculate current position
+            progress = float(step) / steps
+            self.current_pose.position.x = (
+                start_pose.position.x + direction.x * distance * progress
+            )
+            self.current_pose.position.y = (
+                start_pose.position.y + direction.y * distance * progress
+            )
+            self.current_pose.position.z = (
+                start_pose.position.z + direction.z * distance * progress
+            )
+
+            # Update orientation to face the target (simplified)
+            self.current_pose.orientation = self.calculate_orientation(
+                self.current_pose.position,
+                target_pose.position
+            )
+
+            # Publish current pose
+            self.pose_publisher.publish(self.current_pose)
+
+            # Prepare and publish feedback
+            feedback_msg.current_pose = self.current_pose
+            feedback_msg.distance_remaining = distance * (1.0 - progress)
+            feedback_msg.progress = progress
+
+            goal_handle.publish_feedback(feedback_msg)
+
+            # Sleep to simulate navigation time
+            time.sleep(step_time)
+
+        # Check if goal was cancelled after the loop
+        if goal_handle.is_cancel_requested:
+            self.get_logger().info('Navigation cancelled')
+            with self.goals_lock:
+                del self.active_goals[goal_id]
+            goal_handle.canceled()
+            result_msg.error_code = 1  # Cancelled
+            return result_msg
+
+        # Complete navigation successfully
+        self.current_pose = target_pose  # Set final position
+        self.pose_publisher.publish(self.current_pose)
+
+        goal_handle.succeed()
+        result_msg.result = True
+        result_msg.error_code = 0  # Success
+
+        with self.goals_lock:
+            del self.active_goals[goal_id]
+
+        self.get_logger().info('Navigation completed successfully')
+        return result_msg
+
+    def calculate_distance(self, pos1, pos2):
+        """
+        Calculate the Euclidean distance between two points.
+
+        Args:
+            pos1: First position (Point message)
+            pos2: Second position (Point message)
+
+        Returns:
+            Distance as a float
+        """
+        dx = pos2.x - pos1.x
+        dy = pos2.y - pos1.y
+        dz = pos2.z - pos1.z
+        return (dx**2 + dy**2 + dz**2)**0.5
+
+    def calculate_orientation(self, current_pos, target_pos):
+        """
+        Calculate orientation to face the target position.
+
+        Args:
+            current_pos: Current position (Point message)
+            target_pos: Target position (Point message)
+
+        Returns:
+            Orientation as a Quaternion message
+        """
+        # Simplified orientation calculation
+        # In a real implementation, this would involve more complex math
+        orientation = Quaternion()
+        orientation.x = 0.0
+        orientation.y = 0.0
+        orientation.z = 0.0
+        orientation.w = 1.0
+        return orientation
+
+
+def main(args=None):
+    rclpy.init(args=args)
+
+    navigation_server = NavigationActionServer()
+
+    try:
+        rclpy.spin(navigation_server)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        navigation_server.destroy_node()
+        rclpy.shutdown()
+```
+
+## Action Client Implementation
+
+### Basic Action Client
+
+```python
+import rclpy
+from rclpy.action import ActionClient
+from rclpy.node import Node
+from example_interfaces.action import Fibonacci
+
+
+class FibonacciActionClient(Node):
+    def __init__(self):
+        super().__init__('fibonacci_action_client')
+
+        # Create action client
+        self._action_client = ActionClient(
+            self,
+            Fibonacci,
+            'fibonacci'
+        )
+
+        self.get_logger().info('Fibonacci action client initialized')
+
+    def send_goal(self, order):
+        """
+        Send a goal to the Fibonacci action server.
+
+        Args:
+            order: The order of the Fibonacci sequence to compute
+
+        Returns:
+            Future object for the goal request
+        """
+        # Wait for the action server to be available
+        self.get_logger().info('Waiting for action server...')
+        self._action_client.wait_for_server()
+
+        # Create the goal message
+        goal_msg = Fibonacci.Goal()
+        goal_msg.order = order
+
+        self.get_logger().info(f'Sending goal: compute Fibonacci sequence of order {order}')
+
+        # Send the goal and register callbacks
+        self._send_goal_future = self._action_client.send_goal_async(
+            goal_msg,
+            feedback_callback=self.feedback_callback
+        )
+
+        # Add callback for when the goal response is received
+        self._send_goal_future.add_done_callback(self.goal_response_callback)
+
+        return self._send_goal_future
+
+    def goal_response_callback(self, future):
+        """
+        Callback for when the goal response is received.
+        """
+        goal_handle = future.result()
+        if not goal_handle.accepted:
+            self.get_logger().info('Goal rejected by server')
+            return
+
+        self.get_logger().info('Goal accepted by server')
+
+        # Request the result future
+        self._get_result_future = goal_handle.get_result_async()
+        self._get_result_future.add_done_callback(self.get_result_callback)
+
+    def feedback_callback(self, feedback_msg):
+        """
+        Callback for receiving feedback during action execution.
+        """
+        self.get_logger().info(
+            f'Received feedback: current sequence length = {len(feedback_msg.feedback.sequence)}'
+        )
+
+    def get_result_callback(self, future):
+        """
+        Callback for when the final result is received.
+        """
+        result = future.result().result
+        self.get_logger().info(f'Result: {result.sequence}')
+        self.get_logger().info(f'Fibonacci sequence has {len(result.sequence)} numbers')
+
+
+def main(args=None):
+    rclpy.init(args=args)
+
+    action_client = FibonacciActionClient()
+
+    # Send a goal to compute the 10th Fibonacci number
+    action_client.send_goal(10)
+
+    try:
+        rclpy.spin(action_client)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        action_client.destroy_node()
+        rclpy.shutdown()
+```
+
+### Advanced Action Client with Goal Management
+
+```python
+import rclpy
+from rclpy.action import ActionClient
+from rclpy.node import Node
+from example_interfaces.action import NavigateToPose
+from geometry_msgs.msg import Pose, Point
+import threading
+import time
+
+
+class NavigationActionClient(Node):
+    def __init__(self):
+        super().__init__('navigation_action_client')
+
+        # Create action client
+        self._action_client = ActionClient(
+            self,
+            NavigateToPose,
+            'navigate_to_pose'
+        )
+
+        # Store active goals
+        self.active_goals = {}
+        self.goals_lock = threading.Lock()
+
+        self.get_logger().info('Navigation action client initialized')
+
+    def send_navigation_goal(self, x, y, z=0.0):
+        """
+        Send a navigation goal to the action server.
+
+        Args:
+            x: Target x coordinate
+            y: Target y coordinate
+            z: Target z coordinate (default 0.0)
+
+        Returns:
+            Future object for the goal request
+        """
+        # Wait for the action server to be available
+        self.get_logger().info('Waiting for navigation server...')
+        self._action_client.wait_for_server()
+
+        # Create the goal message
+        goal_msg = NavigateToPose.Goal()
+        goal_msg.pose.position.x = x
+        goal_msg.pose.position.y = y
+        goal_msg.pose.position.z = z
+        goal_msg.pose.orientation.w = 1.0  # Default orientation
+
+        self.get_logger().info(f'Sending navigation goal to ({x}, {y}, {z})')
+
+        # Send the goal and register callbacks
+        send_goal_future = self._action_client.send_goal_async(
+            goal_msg,
+            feedback_callback=self.feedback_callback
+        )
+
+        # Add callback for when the goal response is received
+        send_goal_future.add_done_callback(
+            lambda future: self.goal_response_callback(future, goal_msg)
+        )
+
+        return send_goal_future
+
+    def goal_response_callback(self, future, goal_msg):
+        """
+        Callback for when the goal response is received.
+        """
+        goal_handle = future.result()
+        if not goal_handle.accepted:
+            self.get_logger().info('Navigation goal rejected by server')
+            return
+
+        self.get_logger().info('Navigation goal accepted by server')
+
+        # Store the goal handle for potential cancellation
+        goal_id = goal_handle.goal_id.uuid
+        with self.goals_lock:
+            self.active_goals[goal_id] = goal_handle
+
+        # Request the result future
+        get_result_future = goal_handle.get_result_async()
+        get_result_future.add_done_callback(
+            lambda future: self.get_result_callback(future, goal_msg)
+        )
+
+    def feedback_callback(self, feedback_msg):
+        """
+        Callback for receiving navigation feedback.
+        """
+        distance_remaining = feedback_msg.feedback.distance_remaining
+        progress = feedback_msg.feedback.progress
+
+        self.get_logger().info(
+            f'Navigation progress: {progress*100:.1f}% '
+            f'({distance_remaining:.2f}m remaining)'
+        )
+
+        # Example: Cancel if progress is too slow (simulated condition)
+        # In a real application, you might cancel based on timeout or other criteria
+        # if progress < expected_progress_for_time:
+        #     self.cancel_goal(goal_handle)
+
+    def get_result_callback(self, future, goal_msg):
+        """
+        Callback for when the final result is received.
+        """
+        result_response = future.result()
+        result = result_response.result
+
+        if result.error_code == 0:  # Success
+            self.get_logger().info('Navigation completed successfully')
+        elif result.error_code == 1:  # Cancelled
+            self.get_logger().info('Navigation was cancelled')
+        else:
+            self.get_logger().info(f'Navigation failed with error code: {result.error_code}')
+
+        # Remove from active goals
+        goal_id = result_response.goal_id.uuid
+        with self.goals_lock:
+            if goal_id in self.active_goals:
+                del self.active_goals[goal_id]
+
+    def cancel_all_goals(self):
+        """
+        Cancel all active navigation goals.
+        """
+        with self.goals_lock:
+            for goal_handle in self.active_goals.values():
+                goal_handle.cancel_goal_async()
+            self.active_goals.clear()
+
+        self.get_logger().info('All navigation goals cancelled')
+
+
+def main(args=None):
+    rclpy.init(args=args)
+
+    nav_client = NavigationActionClient()
+
+    # Send a navigation goal
+    nav_client.send_navigation_goal(5.0, 3.0)
+
+    try:
+        # Run for a while to see the result
+        rclpy.spin_once(nav_client, timeout_sec=1.0)
+
+        # You can add more goals or perform other operations here
+        # For example, after some time you might want to cancel goals:
+        # time.sleep(5.0)
+        # nav_client.cancel_all_goals()
+
+        rclpy.spin(nav_client)
+    except KeyboardInterrupt:
+        # Cancel any active goals on shutdown
+        nav_client.cancel_all_goals()
+        pass
+    finally:
+        nav_client.destroy_node()
+        rclpy.shutdown()
+```
+
+## Action Best Practices
+
+### Design Principles
+
+1. **Appropriate Use Cases**: Use actions for operations that:
+   - Take more than a few seconds to complete
+   - Need to report progress to the user
+   - Should be cancellable
+   - Return complex results
+
+2. **Clear Message Definitions**: Define goal, feedback, and result messages that:
+   - Provide sufficient information for the operation
+   - Include relevant status information in feedback
+   - Return meaningful results with error codes
+
+3. **Proper State Management**: Handle all action states correctly:
+   - Accept or reject goals appropriately
+   - Publish meaningful feedback during execution
+   - Complete goals with proper success/failure status
+
+### Error Handling
+
+```python
+def execute_callback(self, goal_handle):
+    """Example of proper error handling in action execution."""
+    try:
+        # Validate inputs
+        if goal_handle.request.order < 0:
+            self.get_logger().error('Invalid order parameter')
+            result_msg = Fibonacci.Result()
+            result_msg.sequence = []
+            goal_handle.abort()
+            return result_msg
+
+        # Perform the operation
+        # ... action logic here ...
+
+        # Check for cancellation during execution
+        if goal_handle.is_cancel_requested:
+            self.get_logger().info('Goal cancelled during execution')
+            result_msg = Fibonacci.Result()
+            result_msg.sequence = []  # or partial result
+            goal_handle.canceled()
+            return result_msg
+
+        # Complete successfully
+        goal_handle.succeed()
+        return result_msg
+
+    except Exception as e:
+        self.get_logger().error(f'Error during action execution: {e}')
+        result_msg = Fibonacci.Result()
+        result_msg.sequence = []
+        goal_handle.abort()
+        return result_msg
+```
+
+### Performance Considerations
+
+1. **Feedback Frequency**: Balance feedback frequency with performance:
+   - Too frequent: Can overwhelm the network and client
+   - Too infrequent: Doesn't provide adequate progress information
+
+2. **Resource Management**: Properly manage resources during long operations:
+   - Clean up resources if goal is cancelled
+   - Handle multiple concurrent goals efficiently
+   - Monitor memory usage for long-running operations
+
+3. **Timeout Handling**: Implement appropriate timeout mechanisms:
+   - Set reasonable timeouts for operations
+   - Handle timeout conditions gracefully
+   - Provide clear error messages for timeouts
+
+## Advanced Action Features
+
+### Goal Preemption
+
+Actions support goal preemption, where a new goal can replace an active goal:
+
+```python
+def goal_callback(self, goal_request):
+    """
+    Allow preemption of active goals.
+    """
+    # Always accept new goals and allow preemption
+    return GoalResponse.ACCEPT
+
+def execute_callback(self, goal_handle):
+    """
+    Handle goal preemption in the execution callback.
+    """
+    while not goal_handle.is_cancel_requested:
+        # Perform work
+        # Check for new goals that might preempt this one
+        # In most cases, the action server will automatically handle preemption
+        pass
+
+    # If cancelled, handle appropriately
+    goal_handle.canceled()
+    return SomeResult()
+```
+
+### Multiple Concurrent Goals
+
+Action servers can handle multiple goals concurrently:
+
+```python
+import threading
+
+class ConcurrentActionServer(Node):
+    def __init__(self):
+        super().__init__('concurrent_action_server')
+
+        self._action_server = ActionServer(
+            self,
+            Fibonacci,
+            'fibonacci',
+            execute_callback=self.execute_callback,
+            goal_callback=self.goal_callback,
+            cancel_callback=self.cancel_callback,
+            handle_accepted_callback=self.handle_accepted_callback
+        )
+
+        self.goal_queue = []
+        self.queue_lock = threading.Lock()
+
+    def handle_accepted_callback(self, goal_handle):
+        """
+        Handle accepted goals by starting execution in a separate thread.
+        """
+        with self.queue_lock:
+            self.goal_queue.append(goal_handle)
+
+        # Execute in a separate thread to allow concurrent execution
+        thread = threading.Thread(target=self.execute_goal, args=(goal_handle,))
+        thread.start()
+
+    def execute_goal(self, goal_handle):
+        """
+        Execute a single goal in its own thread.
+        """
+        # Execute the goal as before
+        result_msg = self.perform_calculation(goal_handle)
+
+        if goal_handle.is_cancel_requested:
+            goal_handle.canceled()
+        else:
+            goal_handle.succeed()
+
+        return result_msg
+```
+
+## Summary
+
+Actions are a powerful communication pattern in ROS 2 that enable long-running operations with feedback, cancellation, and detailed results. They are essential for complex robotic tasks such as navigation, manipulation, and calibration. Proper implementation of actions involves careful design of goal, feedback, and result messages, appropriate error handling, and consideration of performance and resource management. Understanding and effectively using actions is crucial for developing sophisticated robotic applications that can handle complex, multi-step operations with user interaction and progress reporting.
+
+## References
+
+ROS.org. (2023). *ROS 2 Actions Documentation*. Retrieved from https://docs.ros.org/en/humble/

@@ -1,0 +1,29 @@
+graph LR
+    A[Publisher Node] -->|Publishes Messages| B[Topic: /chatter]
+    C[Subscriber Node 1] -->|Subscribes to| B
+    D[Subscriber Node 2] -->|Subscribes to| B
+    E[Subscriber Node N] -->|Subscribes to| B
+
+    style A fill:#4CAF50,stroke:#388E3C,color:#fff
+    style B fill:#2196F3,stroke:#0D47A1,color:#fff
+    style C fill:#FF9800,stroke:#E65100,color:#fff
+    style D fill:#FF9800,stroke:#E65100,color:#fff
+    style E fill:#FF9800,stroke:#E65100,color:#fff
+
+    subgraph "ROS 2 Communication System"
+        B
+    end
+
+    subgraph "Publisher"
+        A
+    end
+
+    subgraph "Subscribers"
+        C
+        D
+        E
+    end
+
+%% Diagram Title
+%% Publisher-Subscriber Architecture in ROS 2
+%% Accessibility: This diagram shows a publisher node sending messages to a topic, which multiple subscriber nodes receive from. The publisher is colored green, the topic is blue, and subscribers are orange.

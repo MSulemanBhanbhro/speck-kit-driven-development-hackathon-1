@@ -1,0 +1,676 @@
+openapi: 3.0.0
+info:
+  title: ROS 2 Educational Content API
+  description: API for managing educational content related to Robot Operating System 2 (ROS 2)
+  version: 1.0.0
+servers:
+  - url: https://api.ros2-education.example.com/v1
+    description: Production server
+  - url: https://staging-api.ros2-education.example.com/v1
+    description: Staging server
+
+paths:
+  /chapters:
+    get:
+      summary: List all chapters
+      description: Retrieve a list of all available chapters in the ROS 2 educational content
+      responses:
+        '200':
+          description: A list of chapters
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  chapters:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Chapter'
+                  total:
+                    type: integer
+                  offset:
+                    type: integer
+                  limit:
+                    type: integer
+    post:
+      summary: Create a new chapter
+      description: Create a new chapter for the ROS 2 educational content
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChapterInput'
+      responses:
+        '201':
+          description: Chapter created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Chapter'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /chapters/{chapterId}:
+    get:
+      summary: Get a chapter by ID
+      description: Retrieve details of a specific chapter
+      parameters:
+        - name: chapterId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Chapter details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Chapter'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      summary: Update a chapter
+      description: Update details of a specific chapter
+      parameters:
+        - name: chapterId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChapterInput'
+      responses:
+        '200':
+          description: Chapter updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Chapter'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      summary: Delete a chapter
+      description: Delete a specific chapter
+      parameters:
+        - name: chapterId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Chapter deleted successfully
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /chapters/{chapterId}/sections:
+    get:
+      summary: List sections in a chapter
+      description: Retrieve all sections in a specific chapter
+      parameters:
+        - name: chapterId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of sections
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sections:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Section'
+    post:
+      summary: Create a new section
+      description: Create a new section in the specified chapter
+      parameters:
+        - name: chapterId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SectionInput'
+      responses:
+        '201':
+          description: Section created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Section'
+
+  /ros-examples:
+    get:
+      summary: List all ROS examples
+      description: Retrieve a list of all available ROS 2 examples
+      responses:
+        '200':
+          description: A list of ROS examples
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rosExamples:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ROSExample'
+    post:
+      summary: Create a new ROS example
+      description: Create a new ROS 2 example for educational purposes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ROSExampleInput'
+      responses:
+        '201':
+          description: ROS example created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ROSExample'
+
+  /robot-descriptions:
+    get:
+      summary: List all robot descriptions
+      description: Retrieve a list of all available robot descriptions
+      responses:
+        '200':
+          description: A list of robot descriptions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  robotDescriptions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/RobotDescription'
+    post:
+      summary: Create a new robot description
+      description: Create a new robot description for educational purposes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RobotDescriptionInput'
+      responses:
+        '201':
+          description: Robot description created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RobotDescription'
+
+components:
+  schemas:
+    Chapter:
+      type: object
+      required:
+        - id
+        - title
+        - description
+        - content
+        - order
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the chapter
+        title:
+          type: string
+          description: Title of the chapter
+        description:
+          type: string
+          description: Brief description of the chapter
+        content:
+          type: string
+          description: Main content in MDX format
+        wordCount:
+          type: number
+          description: Approximate word count
+        order:
+          type: number
+          description: Sequence order in the module (1-4)
+        status:
+          type: string
+          enum: [draft, review, published]
+          description: Current status of the chapter
+        sections:
+          type: array
+          description: List of sections in the chapter
+          items:
+            $ref: '#/components/schemas/Section'
+        rosExamples:
+          type: array
+          description: List of ROS examples in the chapter
+          items:
+            $ref: '#/components/schemas/ROSExample'
+        robotDescriptions:
+          type: array
+          description: List of robot descriptions in the chapter
+          items:
+            $ref: '#/components/schemas/RobotDescription'
+        diagrams:
+          type: array
+          description: List of diagrams in the chapter
+          items:
+            $ref: '#/components/schemas/Diagram'
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation timestamp
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+
+    ChapterInput:
+      type: object
+      required:
+        - title
+        - description
+        - content
+        - order
+      properties:
+        title:
+          type: string
+          description: Title of the chapter
+          maxLength: 100
+        description:
+          type: string
+          description: Brief description of the chapter
+        content:
+          type: string
+          description: Main content in MDX format
+        wordCount:
+          type: number
+          description: Approximate word count
+        order:
+          type: number
+          description: Sequence order in the module (1-4)
+        status:
+          type: string
+          enum: [draft, review, published]
+          description: Current status of the chapter
+
+    Section:
+      type: object
+      required:
+        - id
+        - title
+        - content
+        - order
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the section
+        title:
+          type: string
+          description: Title of the section
+        content:
+          type: string
+          description: Section content in MDX format
+        order:
+          type: number
+          description: Sequence order in the chapter
+        sectionType:
+          type: string
+          enum: [text, code, diagram, exercise, communication, node, service, action]
+          description: Type of section
+
+    SectionInput:
+      type: object
+      required:
+        - title
+        - content
+        - order
+      properties:
+        title:
+          type: string
+          description: Title of the section
+          maxLength: 100
+        content:
+          type: string
+          description: Section content in MDX format
+        order:
+          type: number
+          description: Sequence order in the chapter
+        sectionType:
+          type: string
+          enum: [text, code, diagram, exercise, communication, node, service, action]
+          description: Type of section
+
+    ROSExample:
+      type: object
+      required:
+        - id
+        - title
+        - description
+        - type
+        - scriptPath
+        - runnable
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the example
+        title:
+          type: string
+          description: Title of the example
+        description:
+          type: string
+          description: Brief description of the example
+        type:
+          type: string
+          enum: [publisher, subscriber, service-server, service-client, action-server, action-client, node-implementation]
+          description: Type of ROS example
+        scriptPath:
+          type: string
+          description: Path to the Python/C++ script file
+        runnable:
+          type: boolean
+          description: Whether the example can be executed
+        requirements:
+          type: array
+          description: Dependencies needed to run the example
+          items:
+            type: string
+        launchFile:
+          type: string
+          description: Path to associated launch file if applicable
+        chapters:
+          type: array
+          description: List of chapters associated with this example
+          items:
+            type: string
+
+    ROSExampleInput:
+      type: object
+      required:
+        - title
+        - description
+        - type
+        - scriptPath
+        - runnable
+      properties:
+        title:
+          type: string
+          description: Title of the example
+          maxLength: 100
+        description:
+          type: string
+          description: Brief description of the example
+        type:
+          type: string
+          enum: [publisher, subscriber, service-server, service-client, action-server, action-client, node-implementation]
+          description: Type of ROS example
+        scriptPath:
+          type: string
+          description: Path to the Python/C++ script file
+        runnable:
+          type: boolean
+          description: Whether the example can be executed
+        requirements:
+          type: array
+          description: Dependencies needed to run the example
+          items:
+            type: string
+        launchFile:
+          type: string
+          description: Path to associated launch file if applicable
+
+    RobotDescription:
+      type: object
+      required:
+        - id
+        - name
+        - description
+        - format
+        - path
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the robot description
+        name:
+          type: string
+          description: Name of the robot description
+        description:
+          type: string
+          description: Brief description of the robot
+        format:
+          type: string
+          enum: [urdf, xacro]
+          description: Format of the robot description
+        path:
+          type: string
+          description: Path to the robot description file
+        links:
+          type: array
+          description: List of robot links
+          items:
+            type: object
+        joints:
+          type: array
+          description: List of robot joints
+          items:
+            type: object
+        materials:
+          type: array
+          description: List of materials used
+          items:
+            type: object
+        chapters:
+          type: array
+          description: List of chapters associated with this description
+          items:
+            type: string
+
+    RobotDescriptionInput:
+      type: object
+      required:
+        - name
+        - description
+        - format
+        - path
+      properties:
+        name:
+          type: string
+          description: Name of the robot description
+          maxLength: 100
+        description:
+          type: string
+          description: Brief description of the robot
+        format:
+          type: string
+          enum: [urdf, xacro]
+          description: Format of the robot description
+        path:
+          type: string
+          description: Path to the robot description file
+        links:
+          type: array
+          description: List of robot links
+          items:
+            type: object
+        joints:
+          type: array
+          description: List of robot joints
+          items:
+            type: object
+        materials:
+          type: array
+          description: List of materials used
+          items:
+            type: object
+
+    Diagram:
+      type: object
+      required:
+        - id
+        - title
+        - description
+        - type
+        - content
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the diagram
+        title:
+          type: string
+          description: Title of the diagram
+        description:
+          type: string
+          description: Brief description of the diagram
+        type:
+          type: string
+          enum: [mermaid, svg, image]
+          description: Type of diagram
+        content:
+          type: string
+          description: Diagram definition or path
+        altText:
+          type: string
+          description: Accessibility text
+
+    ROSNode:
+      type: object
+      required:
+        - id
+        - name
+        - description
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the ROS node
+        name:
+          type: string
+          description: Name of the ROS node
+        description:
+          type: string
+          description: Brief description of the node
+        language:
+          type: string
+          enum: [python, cpp]
+          description: Programming language used
+        publishers:
+          type: array
+          description: List of topics published
+          items:
+            type: string
+        subscribers:
+          type: array
+          description: List of topics subscribed
+          items:
+            type: string
+        services:
+          type: array
+          description: List of services provided
+          items:
+            type: string
+        actions:
+          type: array
+          description: List of actions provided
+          items:
+            type: string
+
+    Topic:
+      type: object
+      required:
+        - id
+        - name
+        - messageType
+        - description
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the topic
+        name:
+          type: string
+          description: Name of the topic
+        messageType:
+          type: string
+          description: Type of message published/subscribed
+        description:
+          type: string
+          description: Brief description of the topic
+        qosProfile:
+          type: object
+          description: Quality of Service profile settings
+
+    Service:
+      type: object
+      required:
+        - id
+        - name
+        - serviceType
+        - description
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the service
+        name:
+          type: string
+          description: Name of the service
+        serviceType:
+          type: string
+          description: Type of service request/response
+        description:
+          type: string
+          description: Brief description of the service
+
+    Action:
+      type: object
+      required:
+        - id
+        - name
+        - actionType
+        - description
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the action
+        name:
+          type: string
+          description: Name of the action
+        actionType:
+          type: string
+          description: Type of action goal/feedback/result
+        description:
+          type: string
+          description: Brief description of the action
+
+    BadRequest:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Invalid input provided"
+        details:
+          type: object
+          description: Additional error details
+
+    NotFound:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Resource not found"

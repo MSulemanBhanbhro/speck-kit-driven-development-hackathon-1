@@ -1,0 +1,57 @@
+---
+title: Cross-References
+description: Cross-references between chapters in Module 1
+sidebar_position: 6
+---
+
+# Cross-References Between Chapters
+
+This document provides cross-references between the different chapters in Module 1 to help you navigate between related concepts.
+
+## Chapter 1: Robot Communication Fundamentals
+
+- [Understanding ROS 2 Nodes](./chapter1-robot-communication-fundamentals/nodes-concept) - Foundational concepts for node implementation
+- [Topics and Message Passing](./chapter1-robot-communication-fundamentals/topics-concept) - Essential for understanding publisher/subscriber patterns
+- [Services and Request-Response Communication](./chapter1-robot-communication-fundamentals/services-concept) - Prerequisite for service-based control
+
+## Chapter 2: Node Implementation and Control
+
+- [Node Lifecycle Management](./chapter2-node-implementation-and-control/lifecycle) - Advanced node state management
+- [Quality of Service (QoS) Settings](./chapter2-node-implementation-and-control/qos) - Critical for performance tuning
+- Related to: [Understanding ROS 2 Nodes](./chapter1-robot-communication-fundamentals/nodes-concept) from Chapter 1
+
+## Chapter 3: Robot Structure Description
+
+- [URDF Format Explained](./chapter3-robot-structure-description/urdf-explanation) - Detailed specification of robot models
+- [XACRO Format Explained](./chapter3-robot-structure-description/xacro-explanation) - Advanced robot description techniques
+- [Links and Joints in Robot Description](./chapter3-robot-structure-description/links-joints) - Core structural elements
+- Related to: [Node Implementation](./chapter2-node-implementation-and-control/node-implementation) for robot state publishing
+
+## Chapter 4: Advanced Communication Patterns
+
+- [Action Patterns in ROS 2](./chapter4-advanced-communication-patterns/actions) - Long-running operations with feedback
+- [Lifecycle Nodes](./chapter4-advanced-communication-patterns/lifecycle-nodes) - Advanced state management
+- Related to: [Node Lifecycle Management](./chapter2-node-implementation-and-control/lifecycle) from Chapter 2
+- Related to: [Services and Request-Response Communication](./chapter1-robot-communication-fundamentals/services-concept) for comparison
+
+## Troubleshooting
+
+- [Troubleshooting Guide](./troubleshooting) - Solutions for common issues across all chapters
+
+## Conceptual Relationships
+
+### Communication Patterns Hierarchy
+1. **Topics** (Chapter 1) - Basic publish/subscribe
+2. **Services** (Chapter 1) - Request/response
+3. **Actions** (Chapter 4) - Long-running with feedback
+
+### Node Complexity Progression
+1. **Basic Nodes** (Chapter 1) - Simple publishers/subscribers
+2. **Control Nodes** (Chapter 2) - Service-based control
+3. **Lifecycle Nodes** (Chapter 4) - Advanced state management
+
+### Robot Modeling Integration
+- **URDF/XACRO** (Chapter 3) connects with **Node Implementation** (Chapter 2) through robot state publishing
+- **Actions** (Chapter 4) can be used to control robot movements defined in **Robot Structure** (Chapter 3)
+
+These cross-references help you understand how concepts build upon each other and where to find related information when implementing your robotic systems.

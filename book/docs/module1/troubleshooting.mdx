@@ -1,0 +1,338 @@
+---
+title: Troubleshooting Guide
+description: Common issues and solutions for ROS 2 examples in Module 1
+sidebar_position: 5
+---
+
+# Troubleshooting Guide
+
+## Common ROS 2 Issues and Solutions
+
+This guide covers common issues you may encounter while working with the ROS 2 examples in Module 1 and provides solutions to resolve them.
+
+### Environment Setup Issues
+
+#### ROS 2 Not Found
+**Problem**: Commands like `ros2 run` or `ros2 topic` are not recognized.
+
+**Solution**:
+1. Make sure ROS 2 Humble is installed correctly
+2. Source the ROS 2 setup script:
+   ```bash
+   source /opt/ros/humble/setup.bash
+   ```
+3. Add the source command to your `.bashrc` file to make it permanent:
+   ```bash
+   echo "source /opt/ros/humble/setup.bash" >> ~/.bashrc
+   ```
+
+#### Python Package Import Errors
+**Problem**: Import errors when running Python nodes, such as `ModuleNotFoundError`.
+
+**Solution**:
+1. Make sure you're running the code from the correct workspace
+2. Source your workspace after building:
+   ```bash
+   cd ~/your_workspace
+   source install/setup.bash
+   ```
+3. Ensure the Python script has executable permissions:
+   ```bash
+   chmod +x script.py
+   ```
+
+### Topic Communication Issues
+
+#### No Messages Being Published/Subscribed
+**Problem**: Publishers and subscribers are not communicating.
+
+**Solution**:
+1. Verify topic names match exactly:
+   ```bash
+   ros2 topic list  # Check available topics
+   ros2 topic info /topic_name  # Check topic info
+   ```
+2. Ensure QoS profiles are compatible between publisher and subscriber
+3. Check that both nodes are running in the same ROS domain
+
+#### Topic Echo Shows No Data
+**Problem**: `ros2 topic echo /topic_name` shows no messages even though publisher is running.
+
+**Solution**:
+1. Verify the publisher is actually publishing (check its logs)
+2. Check QoS compatibility:
+   ```bash
+   ros2 topic info /topic_name
+   ```
+3. Ensure the subscriber's QoS can match the publisher's QoS
+
+### Service Communication Issues
+
+#### Service Call Times Out
+**Problem**: Service calls fail with timeout errors.
+
+**Solution**:
+1. Verify the service server is running:
+   ```bash
+   ros2 service list  # Check if service is available
+   ```
+2. Check that service names match exactly
+3. Ensure the service server is not blocked by other operations
+
+#### Service Server Not Responding
+**Problem**: Service server appears to be running but doesn't respond to calls.
+
+**Solution**:
+1. Check the server's callback function for blocking operations
+2. Ensure the server node is spinning properly
+3. Verify the service type matches between client and server
+
+### Action Communication Issues
+
+#### Action Client Doesn't Receive Feedback
+**Problem**: Action client sends goal but doesn't receive feedback updates.
+
+**Solution**:
+1. Verify the action server is publishing feedback
+2. Check that the feedback callback is properly registered
+3. Ensure the action server is not blocked during execution
+
+#### Action Goal Gets Stuck
+**Problem**: Action goal is accepted but never completes.
+
+**Solution**:
+1. Check the action server's execute callback for infinite loops
+2. Ensure the server calls `goal_handle.succeed()`, `goal_handle.canceled()`, or `goal_handle.abort()`
+3. Verify the goal is not getting stuck in a blocking operation
+
+### Lifecycle Node Issues
+
+#### Node Stuck in a State
+**Problem**: Lifecycle node doesn't transition between states as expected.
+
+**Solution**:
+1. Use the lifecycle manager to control state transitions:
+   ```bash
+   ros2 run lifecycle lifecycle_manager
+   ```
+2. Manually trigger transitions with service calls:
+   ```bash
+   ros2 service call /node_name/change_state lifecycle_msgs/srv/ChangeState "{transition: {id: 1, label: ''}}"  # Configure
+   ros2 service call /node_name/change_state lifecycle_msgs/srv/ChangeState "{transition: {id: 3, label: ''}}"  # Activate
+   ```
+
+#### Lifecycle Node Won't Activate
+**Problem**: Lifecycle node configures successfully but fails to activate.
+
+**Solution**:
+1. Check the `on_activate` callback for errors
+2. Ensure all required resources are properly initialized in `on_configure`
+3. Verify that publishers/subscribers are activated in the correct order
+
+### Parameter Issues
+
+#### Parameter Not Found
+**Problem**: Getting "Parameter not declared" error when trying to get a parameter.
+
+**Solution**:
+1. Ensure the parameter is declared before being accessed:
+   ```python
+   self.declare_parameter('param_name', default_value)
+   ```
+2. Check that the parameter name matches exactly
+
+#### Parameter Changes Don't Take Effect
+**Problem**: Parameter value doesn't update after using `ros2 param set`.
+
+**Solution**:
+1. Ensure you have a parameter callback set up:
+   ```python
+   self.set_parameters_callback(self.parameters_callback)
+   ```
+2. Check that the callback function properly updates the internal state
+
+### Build and Package Issues
+
+#### Package Not Found
+**Problem**: `ros2 run package_name executable_name` returns "Package not found".
+
+**Solution**:
+1. Build the package:
+   ```bash
+   cd ~/your_workspace
+   colcon build --packages-select package_name
+   ```
+2. Source the workspace:
+   ```bash
+   source install/setup.bash
+   ```
+
+#### Python Executable Not Found
+**Problem**: Python nodes don't run with "executable not found" error.
+
+**Solution**:
+1. Ensure the Python file has executable permissions:
+   ```bash
+   chmod +x script.py
+   ```
+2. Make sure the script is installed in the package's setup.py or CMakeLists.txt
+3. Check that the shebang line is correct: `#!/usr/bin/env python3`
+
+### Launch File Issues
+
+#### Launch File Won't Start
+**Problem**: `ros2 launch package_name launch_file.py` fails to start.
+
+**Solution**:
+1. Check Python syntax errors in the launch file
+2. Ensure all referenced packages and executables exist
+3. Verify all import statements are correct
+
+#### Nodes in Launch File Don't Start Properly
+**Problem**: Some nodes in a launch file fail to start.
+
+**Solution**:
+1. Check the launch file for correct package and executable names
+2. Verify parameter files exist if referenced
+3. Look at the launch output for specific error messages
+
+### Performance Issues
+
+#### High CPU Usage
+**Problem**: Nodes consume excessive CPU resources.
+
+**Solution**:
+1. Check timer frequencies - avoid overly frequent callbacks
+2. Use appropriate QoS settings (e.g., BEST_EFFORT for high-frequency data)
+3. Implement proper sleep/delay in loops to prevent busy waiting
+
+#### Memory Leaks
+**Problem**: Process memory usage grows over time.
+
+**Solution**:
+1. Check for data accumulation in buffers without proper cleanup
+2. Ensure proper destruction of resources in node cleanup
+3. Use memory profiling tools to identify problematic areas
+
+### Network and Multi-Robot Issues
+
+#### Nodes Can't Communicate Across Machines
+**Problem**: ROS 2 nodes on different machines can't see each other.
+
+**Solution**:
+1. Set the same ROS domain ID on all machines:
+   ```bash
+   export ROS_DOMAIN_ID=your_domain_id
+   ```
+2. Check firewall settings for ROS 2 ports (typically UDP 7400+)
+3. Ensure network configuration allows multicast traffic
+
+#### Discovery Issues
+**Problem**: Nodes don't discover each other even on the same machine.
+
+**Solution**:
+1. Check that `ROS_LOCALHOST_ONLY` is not set to 1 unless needed:
+   ```bash
+   unset ROS_LOCALHOST_ONLY  # or set to 0
+   ```
+2. Verify that the default middleware is working properly
+
+### Debugging Tips
+
+#### Enable Debug Logging
+To get more detailed information about what's happening:
+
+```python
+import rclpy
+from rclpy.logging import LoggingSeverity
+
+# Set logging level in your node
+self.get_logger().set_level(LoggingSeverity.DEBUG)
+```
+
+Or at runtime:
+```bash
+export RCUTILS_LOGGING_SEVERITY_THRESHOLD=DEBUG
+```
+
+#### Use ROS 2 Command Line Tools
+These tools are invaluable for debugging:
+
+```bash
+# List all nodes
+ros2 node list
+
+# Get information about a specific node
+ros2 node info node_name
+
+# List all topics
+ros2 topic list
+
+# Echo messages on a topic
+ros2 topic echo /topic_name
+
+# List all services
+ros2 service list
+
+# Call a service
+ros2 service call /service_name service_type "{request_fields}"
+
+# List all actions
+ros2 action list
+
+# Send an action goal
+ros2 action send_goal /action_name action_type "{goal_fields}"
+```
+
+#### Common Debugging Workflow
+1. Check if nodes are running: `ros2 node list`
+2. Verify topic/service/action availability: `ros2 topic list`, `ros2 service list`, `ros2 action list`
+3. Check node connections: `ros2 node info node_name`
+4. Monitor data flow: `ros2 topic echo /topic_name`
+5. Check logs: Look at the terminal output of your nodes
+
+### Simulation Integration Issues
+
+#### Robot Model Not Loading
+**Problem**: URDF/XACRO models don't load properly in simulation.
+
+**Solution**:
+1. Validate the URDF file:
+   ```bash
+   check_urdf /path/to/robot.urdf
+   ```
+2. Ensure mesh files are in the correct location relative to the package
+3. Check that the robot_state_publisher is running and publishing transforms
+
+#### TF Transform Issues
+**Problem**: Robot parts don't move properly or transforms are missing.
+
+**Solution**:
+1. Check the TF tree:
+   ```bash
+   ros2 run tf2_tools view_frames
+   ```
+2. Verify joint states are being published
+3. Ensure robot_state_publisher is configured correctly
+
+### Best Practices for Avoiding Issues
+
+1. **Always source your environment** before running ROS 2 commands
+2. **Use consistent naming conventions** for topics, services, and actions
+3. **Implement proper error handling** in your nodes
+4. **Use appropriate QoS settings** for your data types
+5. **Test components individually** before integrating them
+6. **Use the ROS 2 command line tools** for debugging
+7. **Check logs regularly** for warnings and errors
+8. **Validate your URDF files** before using them in simulation
+
+## Getting Help
+
+If you encounter issues not covered in this guide:
+
+1. Check the [official ROS 2 documentation](https://docs.ros.org/en/humble/)
+2. Search the [ROS Answers forum](https://answers.ros.org/questions/)
+3. Look for similar issues in the [GitHub repositories](https://github.com/ros2)
+4. Consider the specific ROS distribution (Humble Hawksbill) when searching for solutions
+
+Remember that ROS 2 is an active project, and solutions may evolve over time. Always check that the solution applies to your specific ROS 2 version.

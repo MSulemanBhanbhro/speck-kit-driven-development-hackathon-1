@@ -1,0 +1,54 @@
+graph TB
+    subgraph "ROS 2 Node Structure"
+        A[Node Class] --> B[Node Handle]
+        A --> C[Communication Interfaces]
+        A --> D[Execution Context]
+        A --> E[Parameter Management]
+    end
+
+    subgraph "Communication Interfaces"
+        C1[Publisher Interface] --> C11[Topic A]
+        C1 --> C12[Topic B]
+        C2[Subscriber Interface] --> C21[Topic C]
+        C2 --> C22[Topic D]
+        C3[Service Server Interface] --> C31[Service 1]
+        C3 --> C32[Service 2]
+        C4[Service Client Interface] --> C41[Service 3]
+        C4 --> C42[Service 4]
+        C5[Action Server Interface]
+        C6[Action Client Interface]
+    end
+
+    subgraph "Execution Context"
+        D1[Timer Callbacks]
+        D2[Service Callbacks]
+        D3[Subscriber Callbacks]
+        D4[Action Callbacks]
+    end
+
+    subgraph "Parameter Management"
+        E1[Parameter Declaration]
+        E2[Parameter Validation]
+        E3[Dynamic Reconfiguration]
+    end
+
+    subgraph "External ROS 2 System"
+        F[ROS 2 Middleware]
+        G[Other Nodes]
+        H[Launch System]
+        I[Parameter Server]
+    end
+
+    A --> F
+    C --> F
+    G --> F
+    H --> A
+    I --> E
+
+    style A fill:#4CAF50,stroke:#388E3C,color:#fff
+    style B fill:#2196F3,stroke:#0D47A1,color:#fff
+    style C fill:#FF9800,stroke:#E65100,color:#fff
+    style D fill:#9C27B0,stroke:#7B1FA2,color:#fff
+    style E fill:#E91E63,stroke:#C2185B,color:#fff
+
+%% Accessibility: This diagram shows the internal structure of a ROS 2 node, including its communication interfaces (publishers, subscribers, services, actions), execution context (callbacks), and parameter management system. The node class connects to all components and interacts with external ROS 2 systems.

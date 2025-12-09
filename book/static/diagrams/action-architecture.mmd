@@ -1,0 +1,55 @@
+graph TB
+    subgraph "Action Architecture"
+        A[Action Client] --> B[Goal Request]
+        B --> C[Action Server]
+        C --> D[Goal Processing]
+        D --> E[Feedback Loop]
+        E --> F[Result Delivery]
+        F --> A
+        G[Cancellation Request] --> C
+        C --> H[Goal Cancellation]
+        H --> A
+    end
+
+    subgraph "Action Components"
+        I[Goal Message] --> C
+        J[Feedback Message] --> E
+        K[Result Message] --> F
+    end
+
+    subgraph "State Management"
+        L[Goal State: PENDING] --> M[Goal State: ACTIVE]
+        M --> N[Goal State: SUCCEEDED]
+        M --> O[Goal State: CANCELED]
+        M --> P[Goal State: ABORTED]
+        G --> O
+    end
+
+    subgraph "Lifecycle Node States"
+        Q[Unconfigured] --> R[Inactive]
+        R --> S[Active]
+        S --> R
+        R --> Q
+        Q --> T[Finalized]
+        S --> T
+        R --> T
+        U[Error State] -.-> Q
+    end
+
+    subgraph "Parameter Management"
+        V[Parameter Declaration] --> W[Parameter Validation]
+        W --> X[Parameter Updates]
+        X --> Y[Dynamic Reconfiguration]
+    end
+
+    A -.-> V
+    C -.-> V
+    Y -.-> A
+    Y -.-> C
+
+    style A fill:#4CAF50,stroke:#388E3C,color:#fff
+    style C fill:#2196F3,stroke:#0D47A1,color:#fff
+    style D fill:#FF9800,stroke:#E65100,color:#fff
+    style S fill:#9C27B0,stroke:#7B1FA2,color:#fff
+
+%% Accessibility: This diagram illustrates the ROS 2 action architecture showing how action clients send goals to action servers, receive feedback during processing, and get final results. It also shows the state management for goals (PENDING, ACTIVE, SUCCEEDED, CANCELLED, ABORTED) and cancellation capabilities.

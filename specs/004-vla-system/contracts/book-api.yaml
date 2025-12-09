@@ -1,0 +1,452 @@
+openapi: 3.0.0
+info:
+  title: AI/Spec-driven Book API
+  description: API for managing the AI/Spec-driven book content
+  version: 1.0.0
+servers:
+  - url: https://api.book.example.com/v1
+    description: Production server
+  - url: https://staging-api.book.example.com/v1
+    description: Staging server
+
+paths:
+  /books:
+    get:
+      summary: List all books
+      description: Retrieve a list of all books in the system
+      responses:
+        '200':
+          description: A list of books
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  books:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Book'
+                  total:
+                    type: integer
+                  offset:
+                    type: integer
+                  limit:
+                    type: integer
+    post:
+      summary: Create a new book
+      description: Create a new book with the provided details
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookInput'
+      responses:
+        '201':
+          description: Book created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Book'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /books/{bookId}:
+    get:
+      summary: Get a book by ID
+      description: Retrieve details of a specific book
+      parameters:
+        - name: bookId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Book details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Book'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      summary: Update a book
+      description: Update details of a specific book
+      parameters:
+        - name: bookId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookInput'
+      responses:
+        '200':
+          description: Book updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Book'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      summary: Delete a book
+      description: Delete a specific book
+      parameters:
+        - name: bookId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Book deleted successfully
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /books/{bookId}/phases:
+    get:
+      summary: List phases of a book
+      description: Retrieve all phases of a specific book
+      parameters:
+        - name: bookId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of phases
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  phases:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Phase'
+    post:
+      summary: Create a new phase
+      description: Create a new phase in the specified book
+      parameters:
+        - name: bookId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PhaseInput'
+      responses:
+        '201':
+          description: Phase created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Phase'
+
+  /books/{bookId}/phases/{phaseId}:
+    get:
+      summary: Get a phase by ID
+      description: Retrieve details of a specific phase in a book
+      parameters:
+        - name: bookId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: phaseId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Phase details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Phase'
+    put:
+      summary: Update a phase
+      description: Update details of a specific phase
+      parameters:
+        - name: bookId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: phaseId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PhaseInput'
+      responses:
+        '200':
+          description: Phase updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Phase'
+    delete:
+      summary: Delete a phase
+      description: Delete a specific phase
+      parameters:
+        - name: bookId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: phaseId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Phase deleted successfully
+
+  /books/{bookId}/phases/{phaseId}/chapters:
+    get:
+      summary: List chapters of a phase
+      description: Retrieve all chapters of a specific phase
+      parameters:
+        - name: bookId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: phaseId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of chapters
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  chapters:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Chapter'
+
+components:
+  schemas:
+    Book:
+      type: object
+      required:
+        - id
+        - title
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the book
+        title:
+          type: string
+          description: Title of the book
+          maxLength: 200
+        description:
+          type: string
+          description: Brief description of the book
+          maxLength: 500
+        author:
+          type: string
+          description: Author of the book
+        version:
+          type: string
+          description: Version of the book following semantic versioning
+        phases:
+          type: array
+          description: List of phases in the book
+          items:
+            $ref: '#/components/schemas/Phase'
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation timestamp
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+
+    BookInput:
+      type: object
+      required:
+        - title
+      properties:
+        title:
+          type: string
+          description: Title of the book
+          maxLength: 200
+        description:
+          type: string
+          description: Brief description of the book
+          maxLength: 500
+        author:
+          type: string
+          description: Author of the book
+
+    Phase:
+      type: object
+      required:
+        - id
+        - title
+        - order
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the phase
+        title:
+          type: string
+          description: Title of the phase
+          maxLength: 100
+        description:
+          type: string
+          description: Brief description of the phase
+        order:
+          type: integer
+          description: Sequence order in the book
+        chapters:
+          type: array
+          description: List of chapters in the phase
+          items:
+            $ref: '#/components/schemas/Chapter'
+        status:
+          type: string
+          enum: [draft, review, published]
+          description: Current status of the phase
+
+    PhaseInput:
+      type: object
+      required:
+        - title
+        - order
+      properties:
+        title:
+          type: string
+          description: Title of the phase
+          maxLength: 100
+        description:
+          type: string
+          description: Brief description of the phase
+        order:
+          type: integer
+          description: Sequence order in the book
+        status:
+          type: string
+          enum: [draft, review, published]
+          default: draft
+
+    Chapter:
+      type: object
+      required:
+        - id
+        - title
+        - content
+        - order
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the chapter
+        title:
+          type: string
+          description: Title of the chapter
+          maxLength: 100
+        description:
+          type: string
+          description: Brief description of the chapter
+        content:
+          type: string
+          description: Main content in MDX format
+        wordCount:
+          type: integer
+          description: Approximate word count
+        order:
+          type: integer
+          description: Sequence order in the phase
+        status:
+          type: string
+          enum: [draft, review, published]
+          description: Current status of the chapter
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation timestamp
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+
+    ChapterInput:
+      type: object
+      required:
+        - title
+        - content
+        - order
+      properties:
+        title:
+          type: string
+          description: Title of the chapter
+          maxLength: 100
+        description:
+          type: string
+          description: Brief description of the chapter
+        content:
+          type: string
+          description: Main content in MDX format
+        wordCount:
+          type: integer
+          description: Approximate word count
+        order:
+          type: integer
+          description: Sequence order in the phase
+        status:
+          type: string
+          enum: [draft, review, published]
+          default: draft
+
+  responses:
+    BadRequest:
+      description: Bad request - invalid input
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: "Invalid input provided"
+              details:
+                type: object
+                description: Additional error details
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: "Resource not found"

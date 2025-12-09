@@ -1,0 +1,602 @@
+---
+title: Quality of Service (QoS) Settings
+description: Understanding and configuring Quality of Service settings for reliable robotic communication
+sidebar_position: 3
+---
+
+# Quality of Service (QoS) Settings
+
+## Introduction to Quality of Service
+
+Quality of Service (QoS) in ROS 2 provides a set of policies that define the behavior of communication between nodes. QoS settings allow developers to specify requirements for reliability, durability, history, and liveliness of messages, services, and actions. These settings are crucial for robotic systems where different types of data have different requirements for delivery guarantees, timing, and persistence.
+
+According to the ROS 2 documentation, QoS policies enable the middleware to make informed decisions about how to handle messages based on the specific needs of the application (ROS.org, 2023). This flexibility is essential for creating robust robotic systems that can operate effectively in various environments and scenarios.
+
+## QoS Policies Overview
+
+### Reliability Policy
+
+The reliability policy determines whether messages must be delivered reliably or can be lost. There are two main reliability settings:
+
+1. **Reliable**: Messages are guaranteed to be delivered, with retries if necessary
+2. **Best Effort**: Messages are sent without delivery guarantees
+
+```python
+from rclpy.qos import QoSProfile, ReliabilityPolicy
+
+# Reliable delivery - messages will be retried until received
+reliable_qos = QoSProfile(
+    depth=10,
+    reliability=ReliabilityPolicy.RELIABLE
+)
+
+# Best effort delivery - no retry mechanism
+best_effort_qos = QoSProfile(
+    depth=10,
+    reliability=ReliabilityPolicy.BEST_EFFORT
+)
+```
+
+### Durability Policy
+
+The durability policy determines whether late-joining subscribers should receive historical data:
+
+1. **Transient Local**: Historical data is available for late joiners
+2. **Volatile**: No historical data is available for late joiners
+
+```python
+from rclpy.qos import QoSProfile, DurabilityPolicy
+
+# Transient local durability - late joiners receive last message
+transient_local_qos = QoSProfile(
+    depth=10,
+    durability=DurabilityPolicy.TRANSIENT_LOCAL
+)
+
+# Volatile durability - no historical messages for late joiners
+volatile_qos = QoSProfile(
+    depth=10,
+    durability=DurabilityPolicy.VOLATILE
+)
+```
+
+### History Policy
+
+The history policy determines how many messages are kept for late joiners:
+
+1. **Keep Last**: Keep the most recent N messages
+2. **Keep All**: Keep all messages (limited by resource constraints)
+
+```python
+from rclpy.qos import QoSProfile, HistoryPolicy
+
+# Keep last N messages (depth specifies N)
+keep_last_qos = QoSProfile(
+    depth=10,
+    history=HistoryPolicy.KEEP_LAST
+)
+
+# Keep all messages (use with caution due to memory usage)
+keep_all_qos = QoSProfile(
+    depth=0,  # Depth is ignored for KEEP_ALL
+    history=HistoryPolicy.KEEP_ALL
+)
+```
+
+### Deadline Policy
+
+The deadline policy specifies the maximum time between consecutive messages:
+
+```python
+from rclpy.qos import QoSProfile, Duration
+
+# Messages must arrive within 1 second of each other
+deadline_qos = QoSProfile(
+    depth=10,
+    deadline=Duration(seconds=1)
+)
+```
+
+### Lifespan Policy
+
+The lifespan policy specifies how long messages are kept before being discarded:
+
+```python
+from rclpy.qos import QoSProfile, Duration
+
+# Messages are discarded after 30 seconds
+lifespan_qos = QoSProfile(
+    depth=10,
+    lifespan=Duration(seconds=30)
+)
+```
+
+## Practical QoS Examples
+
+### Sensor Data Communication
+
+For sensor data, where real-time performance is often more important than reliability:
+
+```python
+import rclpy
+from rclpy.node import Node
+from sensor_msgs.msg import LaserScan
+from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
+
+class SensorNode(Node):
+    def __init__(self):
+        super().__init__('sensor_node')
+
+        # For high-frequency sensor data, use best effort with keep last
+        sensor_qos = QoSProfile(
+            depth=5,  # Keep only recent messages
+            reliability=ReliabilityPolicy.BEST_EFFORT,  # Don't retry lost packets
+            history=HistoryPolicy.KEEP_LAST,  # Keep only recent messages
+            durability=DurabilityPolicy.VOLATILE  # No need for historical data
+        )
+
+        self.laser_pub = self.create_publisher(LaserScan, 'scan', sensor_qos)
+
+        # Timer to publish sensor data
+        self.timer = self.create_timer(0.1, self.publish_scan_data)  # 10 Hz
+
+    def publish_scan_data(self):
+        """Publish simulated laser scan data."""
+        msg = LaserScan()
+        # Set message fields...
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.header.frame_id = 'laser_frame'
+
+        # Fill in laser scan data
+        msg.angle_min = -1.57  # -90 degrees
+        msg.angle_max = 1.57   # 90 degrees
+        msg.angle_increment = 0.01
+        msg.time_increment = 0.0
+        msg.scan_time = 0.0
+        msg.range_min = 0.1
+        msg.range_max = 10.0
+        msg.ranges = [1.0] * 314  # 314 range values
+
+        self.laser_pub.publish(msg)
+        self.get_logger().info('Published laser scan data')
+```
+
+### Critical Command Communication
+
+For critical commands where reliability is essential:
+
+```python
+from geometry_msgs.msg import Twist
+from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
+
+class CommandNode(Node):
+    def __init__(self):
+        super().__init__('command_node')
+
+        # For critical commands, use reliable delivery with transient local
+        command_qos = QoSProfile(
+            depth=10,  # Keep more messages for reliability
+            reliability=ReliabilityPolicy.RELIABLE,  # Ensure delivery
+            history=HistoryPolicy.KEEP_LAST,  # Keep recent messages
+            durability=DurabilityPolicy.VOLATILE  # Commands are volatile
+        )
+
+        self.cmd_pub = self.create_publisher(Twist, 'cmd_vel', command_qos)
+
+    def send_command(self, linear_x, angular_z):
+        """Send a velocity command."""
+        cmd = Twist()
+        cmd.linear.x = linear_x
+        cmd.angular.z = angular_z
+
+        self.cmd_pub.publish(cmd)
+        self.get_logger().info(f'Sent command: linear={linear_x}, angular={angular_z}')
+```
+
+### Parameter Configuration
+
+For parameter configuration where historical data is important:
+
+```python
+from rcl_interfaces.msg import ParameterEvent
+from rclpy.qos import QoSProfile, DurabilityPolicy, HistoryPolicy
+
+class ParameterNode(Node):
+    def __init__(self):
+        super().__init__('parameter_node')
+
+        # For parameter events, use transient local to ensure late joiners get updates
+        param_qos = QoSProfile(
+            depth=10,
+            durability=DurabilityPolicy.TRANSIENT_LOCAL,  # Late joiners get historical data
+            history=HistoryPolicy.KEEP_LAST
+        )
+
+        self.param_pub = self.create_publisher(ParameterEvent, 'parameter_events', param_qos)
+
+    def publish_parameter_event(self, param_name, param_value):
+        """Publish a parameter change event."""
+        event = ParameterEvent()
+        # Set event fields...
+        self.param_pub.publish(event)
+```
+
+## QoS Matching and Compatibility
+
+### QoS Compatibility Rules
+
+When publishers and subscribers have different QoS settings, ROS 2 follows compatibility rules:
+
+- **Reliability**: A reliable publisher can match with a best-effort subscriber, but not vice versa
+- **Durability**: A volatile publisher can match with a transient-local subscriber, but not vice versa
+- **History**: The minimum of the two depths is used
+
+```python
+# Example of checking QoS compatibility
+def check_qos_compatibility(publisher_qos, subscriber_qos):
+    """
+    Check if publisher and subscriber QoS profiles are compatible.
+
+    Args:
+        publisher_qos: QoSProfile for publisher
+        subscriber_qos: QoSProfile for subscriber
+
+    Returns:
+        bool: True if compatible, False otherwise
+    """
+    # Reliability compatibility
+    if publisher_qos.reliability == ReliabilityPolicy.RELIABLE:
+        if subscriber_qos.reliability != ReliabilityPolicy.RELIABLE:
+            return False
+
+    # Durability compatibility
+    if publisher_qos.durability == DurabilityPolicy.TRANSIENT_LOCAL:
+        if subscriber_qos.durability != DurabilityPolicy.TRANSIENT_LOCAL:
+            return False
+
+    return True
+```
+
+### QoS Event Handling
+
+ROS 2 provides QoS events to monitor and handle compatibility issues:
+
+```python
+from rclpy.qos_event import PublisherEventCallbacks, SubscriptionEventCallbacks
+from rclpy.qos import QoSLivelinessChangedInfo, QoSDeadline missed
+
+class QoSEventNode(Node):
+    def __init__(self):
+        super().__init__('qos_event_node')
+
+        # Create publisher with event callbacks
+        def on_liveliness_lost(event):
+            self.get_logger().warning('Publisher liveliness lost')
+
+        def on_offered_deadline_missed(event):
+            self.get_logger().warning('Offered deadline missed')
+
+        publisher_events = PublisherEventCallbacks(
+            liveliness_lost=on_liveliness_lost,
+            offered_deadline_missed=on_offered_deadline_missed
+        )
+
+        qos_profile = QoSProfile(depth=10)
+        self.publisher = self.create_publisher(
+            String,
+            'qos_test_topic',
+            qos_profile=qos_profile,
+            event_callbacks=publisher_events
+        )
+
+        # Create subscription with event callbacks
+        def on_liveliness_changed(event: QoSLivelinessChangedInfo):
+            if event.alive_count > 0:
+                self.get_logger().info('Subscription is alive')
+            else:
+                self.get_logger().warning('Subscription is not alive')
+
+        def on_requested_deadline_missed(event):
+            self.get_logger().warning('Requested deadline missed')
+
+        subscription_events = SubscriptionEventCallbacks(
+            liveliness_changed=on_liveliness_changed,
+            requested_deadline_missed=on_requested_deadline_missed
+        )
+
+        self.subscription = self.create_subscription(
+            String,
+            'qos_test_topic',
+            self.subscription_callback,
+            qos_profile=qos_profile,
+            event_callbacks=subscription_events
+        )
+
+    def subscription_callback(self, msg):
+        """Handle incoming messages."""
+        self.get_logger().info(f'Received: {msg.data}')
+```
+
+## Advanced QoS Configurations
+
+### Custom QoS Profiles
+
+Creating reusable QoS profiles for common scenarios:
+
+```python
+from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
+
+# Define common QoS profiles
+class QoSProfiles:
+    """Common QoS profiles for different use cases."""
+
+    # Default profile
+    DEFAULT = QoSProfile(depth=10)
+
+    # Sensor data profile - best effort, volatile
+    SENSOR_DATA = QoSProfile(
+        depth=5,
+        reliability=ReliabilityPolicy.BEST_EFFORT,
+        durability=DurabilityPolicy.VOLATILE,
+        history=HistoryPolicy.KEEP_LAST
+    )
+
+    # Command profile - reliable, volatile
+    COMMAND = QoSProfile(
+        depth=10,
+        reliability=ReliabilityPolicy.RELIABLE,
+        durability=DurabilityPolicy.VOLATILE,
+        history=HistoryPolicy.KEEP_LAST
+    )
+
+    # Configuration profile - reliable, transient local
+    CONFIGURATION = QoSProfile(
+        depth=10,
+        reliability=ReliabilityPolicy.RELIABLE,
+        durability=DurabilityPolicy.TRANSIENT_LOCAL,
+        history=HistoryPolicy.KEEP_LAST
+    )
+
+    # Logging profile - reliable, keep all
+    LOGGING = QoSProfile(
+        depth=1000,
+        reliability=ReliabilityPolicy.RELIABLE,
+        durability=DurabilityPolicy.VOLATILE,
+        history=HistoryPolicy.KEEP_ALL
+    )
+
+# Usage example
+class AdvancedQoSNode(Node):
+    def __init__(self):
+        super().__init__('advanced_qos_node')
+
+        # Use predefined profiles
+        self.sensor_pub = self.create_publisher(
+            LaserScan, 'scan', QoSProfiles.SENSOR_DATA)
+
+        self.cmd_pub = self.create_publisher(
+            Twist, 'cmd_vel', QoSProfiles.COMMAND)
+
+        self.config_pub = self.create_publisher(
+            ParameterEvent, 'parameter_events', QoSProfiles.CONFIGURATION)
+```
+
+### Dynamic QoS Configuration
+
+Adjusting QoS settings based on runtime conditions:
+
+```python
+class DynamicQoSNode(Node):
+    def __init__(self):
+        super().__init__('dynamic_qos_node')
+
+        # Declare parameters for QoS settings
+        self.declare_parameter('qos_depth', 10)
+        self.declare_parameter('qos_reliability', 'reliable')  # 'reliable' or 'best_effort'
+        self.declare_parameter('qos_durability', 'volatile')   # 'volatile' or 'transient_local'
+
+        # Create initial publisher
+        self.update_qos_settings()
+
+        # Timer to periodically check and update QoS if needed
+        self.qos_timer = self.create_timer(5.0, self.check_qos_requirements)
+
+    def update_qos_settings(self):
+        """Update QoS settings based on parameters."""
+        depth = self.get_parameter('qos_depth').value
+
+        reliability_param = self.get_parameter('qos_reliability').value
+        reliability = (ReliabilityPolicy.RELIABLE
+                      if reliability_param == 'reliable'
+                      else ReliabilityPolicy.BEST_EFFORT)
+
+        durability_param = self.get_parameter('qos_durability').value
+        durability = (DurabilityPolicy.TRANSIENT_LOCAL
+                     if durability_param == 'transient_local'
+                     else DurabilityPolicy.VOLATILE)
+
+        qos_profile = QoSProfile(
+            depth=depth,
+            reliability=reliability,
+            durability=durability,
+            history=HistoryPolicy.KEEP_LAST
+        )
+
+        # Note: In practice, you would need to recreate the publisher
+        # with the new QoS settings, as QoS cannot be changed after creation
+        if hasattr(self, 'dynamic_pub'):
+            # Destroy old publisher
+            self.dynamic_pub.destroy()
+
+        self.dynamic_pub = self.create_publisher(String, 'dynamic_topic', qos_profile)
+        self.get_logger().info(f'Updated QoS settings: depth={depth}, '
+                              f'reliability={reliability_param}, '
+                              f'durability={durability_param}')
+
+    def check_qos_requirements(self):
+        """Check if QoS requirements need to be updated."""
+        # In a real implementation, this would check network conditions,
+        # system load, or other factors to determine if QoS should change
+        pass
+```
+
+## Performance Considerations
+
+### Memory Usage
+
+QoS settings directly impact memory usage:
+
+- **Depth**: Higher depth values require more memory to store messages
+- **History Policy**: KEEP_ALL can consume significant memory over time
+- **Durability**: TRANSIENT_LOCAL stores messages persistently, using more memory
+
+```python
+def calculate_qos_memory_usage(depth, history_policy, message_size_bytes):
+    """
+    Calculate approximate memory usage for a QoS profile.
+
+    Args:
+        depth: Queue depth
+        history_policy: History policy (KEEP_LAST or KEEP_ALL)
+        message_size_bytes: Size of each message in bytes
+
+    Returns:
+        int: Approximate memory usage in bytes
+    """
+    if history_policy == HistoryPolicy.KEEP_ALL:
+        # KEEP_ALL memory usage is unbounded in theory, but limited by resources
+        return float('inf')  # Effectively unbounded
+    else:  # KEEP_LAST
+        return depth * message_size_bytes
+
+# Example usage
+memory_usage = calculate_qos_memory_usage(100, HistoryPolicy.KEEP_LAST, 1024)  # 100KB
+print(f"Memory usage: {memory_usage / 1024 / 1024:.2f} MB")
+```
+
+### Network Bandwidth
+
+Different QoS settings affect network bandwidth usage:
+
+- **Reliability**: RELIABLE policy uses more bandwidth due to retransmissions
+- **Frequency**: Higher message rates consume more bandwidth regardless of QoS
+- **Message Size**: Larger messages consume more bandwidth
+
+## Best Practices for QoS Configuration
+
+### Selecting Appropriate QoS
+
+When selecting QoS settings, consider:
+
+1. **Data Criticality**: How important is it that messages are delivered?
+2. **Real-time Requirements**: Can the application tolerate delays?
+3. **Data Frequency**: How often are messages published?
+4. **Message Importance**: Is the latest value more important than all values?
+
+```python
+class QoSGuidelinesNode(Node):
+    def __init__(self):
+        super().__init__('qos_guidelines_node')
+
+        # High-frequency sensor data (e.g., camera, lidar)
+        sensor_qos = QoSProfile(
+            depth=1,  # Only keep latest
+            reliability=ReliabilityPolicy.BEST_EFFORT,  # Speed over reliability
+            durability=DurabilityPolicy.VOLATILE
+        )
+
+        # Critical commands (e.g., emergency stop)
+        critical_qos = QoSProfile(
+            depth=10,  # Keep more for reliability
+            reliability=ReliabilityPolicy.RELIABLE,  # Must be delivered
+            durability=DurabilityPolicy.VOLATILE
+        )
+
+        # Configuration parameters (e.g., calibration data)
+        config_qos = QoSProfile(
+            depth=10,
+            reliability=ReliabilityPolicy.RELIABLE,
+            durability=DurabilityPolicy.TRANSIENT_LOCAL  # Late joiners need this data
+        )
+
+        # Logging and debugging
+        logging_qos = QoSProfile(
+            depth=1000,  # Keep many messages
+            reliability=ReliabilityPolicy.BEST_EFFORT,  # Loss is acceptable
+            durability=DurabilityPolicy.VOLATILE
+        )
+
+        # Create publishers with appropriate QoS
+        self.sensor_pub = self.create_publisher(String, 'sensor_data', sensor_qos)
+        self.critical_pub = self.create_publisher(String, 'critical_cmd', critical_qos)
+        self.config_pub = self.create_publisher(String, 'config_data', config_qos)
+        self.logging_pub = self.create_publisher(String, 'log_data', logging_qos)
+```
+
+### Monitoring QoS Performance
+
+Monitor QoS-related metrics to ensure optimal performance:
+
+```python
+from rclpy.qos_event import SubscriptionEventCallbacks
+import time
+
+class QoSMonitoringNode(Node):
+    def __init__(self):
+        super().__init__('qos_monitoring_node')
+
+        # Track metrics
+        self.message_count = 0
+        self.start_time = time.time()
+        self.last_message_time = time.time()
+
+        # Create subscription with monitoring
+        def on_requested_deadline_missed(event):
+            self.get_logger().warning('Deadline missed!')
+
+        def on_liveliness_changed(event):
+            if event.alive_count == 0:
+                self.get_logger().warning('Publisher is not alive!')
+
+        qos = QoSProfile(depth=10)
+        self.subscription = self.create_subscription(
+            String,
+            'monitored_topic',
+            self.monitored_callback,
+            qos_profile=qos,
+            event_callbacks=SubscriptionEventCallbacks(
+                requested_deadline_missed=on_requested_deadline_missed,
+                liveliness_changed=on_liveliness_changed
+            )
+        )
+
+    def monitored_callback(self, msg):
+        """Monitored subscription callback."""
+        current_time = time.time()
+        self.message_count += 1
+
+        # Calculate metrics
+        elapsed_time = current_time - self.start_time
+        message_rate = self.message_count / elapsed_time if elapsed_time > 0 else 0
+
+        # Check for timing issues
+        time_since_last = current_time - self.last_message_time
+        if time_since_last > 1.0:  # More than 1 second between messages
+            self.get_logger().warning(f'Long delay between messages: {time_since_last:.2f}s')
+
+        self.last_message_time = current_time
+
+        # Log metrics periodically
+        if self.message_count % 100 == 0:
+            self.get_logger().info(f'Message rate: {message_rate:.2f} Hz')
+```
+
+## Summary
+
+Quality of Service settings in ROS 2 provide powerful controls for managing communication behavior between nodes. By carefully selecting appropriate QoS policies for different types of data, developers can optimize their robotic systems for performance, reliability, and resource usage. Understanding the trade-offs between reliability, durability, and history policies is essential for creating robust and efficient robotic applications.
+
+The flexibility of QoS allows ROS 2 systems to handle diverse requirements from high-frequency sensor data to critical control commands, making it a fundamental concept for professional ROS 2 development.
+
+## References
+
+ROS.org. (2023). *ROS 2 Quality of Service Documentation*. Retrieved from https://docs.ros.org/en/humble/

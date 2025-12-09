@@ -1,0 +1,294 @@
+---
+title: ROS 2 Topics and Message Passing
+description: Understanding the publish-subscribe communication pattern in ROS 2
+sidebar_position: 3
+---
+
+# ROS 2 Topics and Message Passing
+
+## Introduction to Topics
+
+Topics in ROS 2 implement the publish-subscribe communication pattern, which is fundamental to the ROS 2 architecture. In this pattern, publishers send messages to topics, and subscribers receive messages from topics. This decoupled communication mechanism allows for flexible system design where publishers and subscribers can be developed independently and connected at runtime.
+
+The publish-subscribe pattern is particularly well-suited for streaming data in robotic systems, such as sensor readings, actuator commands, and state information. As noted by Quigley et al. (2009), this pattern enables the creation of distributed systems where components can be added or removed without disrupting the overall system (Quigley, M., Conley, K., & Gerkey, B. P. (2009). *ROS: an open-source Robot Operating System*. ICRA Workshop on Open Source Software, 3, 5).
+
+## Topic Architecture
+
+### Publishers and Subscribers
+
+A topic serves as a named bus over which nodes exchange messages. Publishers create and send messages to topics, while subscribers receive messages from topics. The topic name acts as a channel identifier that connects publishers and subscribers.
+
+The relationship between publishers and subscribers is many-to-many:
+- Multiple publishers can publish to the same topic
+- Multiple subscribers can subscribe to the same topic
+- Publishers and subscribers can come and go without affecting each other
+
+### Message Types
+
+Each topic has an associated message type that defines the structure and content of messages sent on that topic. ROS 2 provides a rich set of standard message types in packages like `std_msgs`, `sensor_msgs`, and `geometry_msgs`, but users can also define custom message types.
+
+## Creating Publishers
+
+### Python Implementation
+
+Creating a publisher in Python involves specifying the message type, topic name, and Quality of Service (QoS) settings:
+
+```python
+import rclpy
+from rclpy.node import Node
+from std_msgs.msg import String
+
+class PublisherNode(Node):
+    def __init__(self):
+        super().__init__('publisher_node')
+        # Create publisher with message type, topic name, and queue size
+        self.publisher = self.create_publisher(String, 'topic_name', 10)
+
+        # Create a timer to periodically publish messages
+        timer_period = 0.5  # seconds
+        self.timer = self.create_timer(timer_period, self.timer_callback)
+        self.i = 0
+
+    def timer_callback(self):
+        msg = String()
+        msg.data = f'Hello World: {self.i}'
+        self.publisher.publish(msg)
+        self.get_logger().info(f'Publishing: "{msg.data}"')
+        self.i += 1
+```
+
+### C++ Implementation
+
+In C++, the process is similar but uses C++ syntax:
+
+```cpp
+#include "rclcpp/rclcpp.hpp"
+#include "std_msgs/msg/string.hpp"
+
+class PublisherNode : public rclcpp::Node
+{
+public:
+    PublisherNode() : Node("publisher_node")
+    {
+        publisher_ = this->create_publisher<std_msgs::msg::String>("topic_name", 10);
+        timer_ = this->create_wall_timer(
+            500ms, std::bind(&PublisherNode::timer_callback, this));
+        i_ = 0;
+    }
+
+private:
+    void timer_callback()
+    {
+        auto message = std_msgs::msg::String();
+        message.data = "Hello World: " + std::to_string(i_++);
+        RCLCPP_INFO(this->get_logger(), "Publishing: '%s'", message.data.c_str());
+        publisher_->publish(message);
+    }
+    rclcpp::TimerBase::SharedPtr timer_;
+    rclcpp::Publisher<std_msgs::msg::String>::SharedPtr publisher_;
+    size_t i_;
+};
+```
+
+## Creating Subscribers
+
+### Python Implementation
+
+Subscribers receive messages from topics through callback functions:
+
+```python
+import rclpy
+from rclpy.node import Node
+from std_msgs.msg import String
+
+class SubscriberNode(Node):
+    def __init__(self):
+        super().__init__('subscriber_node')
+        # Create subscriber with message type, topic name, and callback
+        self.subscription = self.create_subscription(
+            String,
+            'topic_name',
+            self.listener_callback,
+            10)
+        self.subscription  # prevent unused variable warning
+
+    def listener_callback(self, msg):
+        self.get_logger().info(f'I heard: {msg.data}')
+```
+
+### C++ Implementation
+
+```cpp
+#include "rclcpp/rclcpp.hpp"
+#include "std_msgs/msg/string.hpp"
+
+class SubscriberNode : public rclcpp::Node
+{
+public:
+    SubscriberNode() : Node("subscriber_node")
+    {
+        subscription_ = this->create_subscription<std_msgs::msg::String>(
+            "topic_name", 10,
+            std::bind(&SubscriberNode::topic_callback, this, std::placeholders::_1));
+    }
+
+private:
+    void topic_callback(const std_msgs::msg::String::SharedPtr msg) const
+    {
+        RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg->data.c_str());
+    }
+    rclcpp::Subscription<std_msgs::msg::String>::SharedPtr subscription_;
+};
+```
+
+## Quality of Service (QoS) Settings
+
+QoS settings allow fine-tuning of communication behavior to meet specific application requirements:
+
+### Reliability Policy
+
+```python
+from rclpy.qos import QoSProfile, ReliabilityPolicy
+
+# Reliable delivery (messages will be retried until received)
+qos_profile = QoSProfile(
+    depth=10,
+    reliability=ReliabilityPolicy.RELIABLE
+)
+
+# Best effort delivery (no retry mechanism)
+qos_profile = QoSProfile(
+    depth=10,
+    reliability=ReliabilityPolicy.BEST_EFFORT
+)
+```
+
+### Durability Policy
+
+```python
+from rclpy.qos import QoSProfile, DurabilityPolicy
+
+# Transient local durability (late joiners receive last message)
+qos_profile = QoSProfile(
+    depth=10,
+    durability=DurabilityPolicy.TRANSIENT_LOCAL
+)
+
+# Volatile durability (no historical messages for late joiners)
+qos_profile = QoSProfile(
+    depth=10,
+    durability=DurabilityPolicy.VOLATILE
+)
+```
+
+## Message Types and Structures
+
+### Standard Message Types
+
+ROS 2 provides many standard message types:
+
+- `std_msgs`: Basic data types (String, Int32, Float64, etc.)
+- `sensor_msgs`: Sensor data (LaserScan, Image, PointCloud2, etc.)
+- `geometry_msgs`: Geometric data (Point, Pose, Twist, etc.)
+- `nav_msgs`: Navigation data (Odometry, Path, OccupancyGrid, etc.)
+
+### Custom Message Types
+
+Custom messages are defined using `.msg` files in a ROS 2 package:
+
+```
+# Custom message definition in my_package/msg/MyMessage.msg
+string name
+int32 value
+float64[] values_array
+geometry_msgs/Point position
+```
+
+## Advanced Topic Features
+
+### Latching
+
+Latching allows the last message on a topic to be stored and sent to new subscribers:
+
+```python
+from rclpy.qos import QoSProfile, DurabilityPolicy
+
+# Create latching publisher
+latching_qos = QoSProfile(
+    depth=1,
+    durability=DurabilityPolicy.TRANSIENT_LOCAL
+)
+latching_publisher = self.create_publisher(String, 'latching_topic', latching_qos)
+```
+
+### Topic Statistics
+
+ROS 2 provides topic statistics for monitoring communication performance:
+
+```python
+# Enable topic statistics
+self.publisher = self.create_publisher(
+    String,
+    'topic_name',
+    10,
+    enable_stats=True
+)
+```
+
+## Common Use Cases
+
+### Sensor Data Streaming
+
+Topics are ideal for streaming sensor data where multiple nodes may need the same information:
+
+```python
+# Sensor node publishing laser scan data
+laser_publisher = self.create_publisher(LaserScan, '/scan', 10)
+
+# Multiple nodes can subscribe to the same scan data
+# - Localization node
+# - Obstacle detection node
+# - Mapping node
+```
+
+### State Broadcasting
+
+Topics can broadcast the current state of a system to interested subscribers:
+
+```python
+# Robot state publisher
+state_publisher = self.create_publisher(RobotState, '/robot_state', 10)
+
+# Multiple nodes interested in robot state
+# - UI/visualization
+# - Logging
+# - Safety monitoring
+```
+
+## Best Practices
+
+### Topic Naming
+
+- Use descriptive names that clearly indicate the data type and source
+- Follow ROS 2 naming conventions (lowercase, underscores)
+- Use hierarchical naming for organization (e.g., `/sensor/laser_scan`)
+
+### Message Design
+
+- Keep messages small and efficient for real-time performance
+- Use appropriate data types for the application requirements
+- Consider bandwidth and processing constraints
+
+### Error Handling
+
+- Handle cases where publishers or subscribers may not be available
+- Implement appropriate timeouts and fallback behaviors
+- Log communication issues for debugging
+
+## Summary
+
+Topics provide the foundation for asynchronous communication in ROS 2 through the publish-subscribe pattern. Understanding how to properly create publishers and subscribers, configure QoS settings, and design effective message types is essential for building robust robotic systems. The flexibility of the topic system allows for scalable and maintainable robot architectures.
+
+## References
+
+Quigley, M., Conley, K., & Gerkey, B. P. (2009). ROS: an open-source Robot Operating System. ICRA Workshop on Open Source Software, 3, 5.

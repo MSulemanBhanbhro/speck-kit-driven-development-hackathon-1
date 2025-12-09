@@ -1,0 +1,354 @@
+---
+title: ROS 2 Services and Request-Response Communication
+description: Understanding synchronous request-response communication in ROS 2
+sidebar_position: 4
+---
+
+# ROS 2 Services and Request-Response Communication
+
+## Introduction to Services
+
+Services in ROS 2 implement synchronous request-response communication between nodes. Unlike topics which provide asynchronous publish-subscribe communication, services establish a direct connection between a client and a server for a specific request-response interaction. This pattern is ideal for operations that require immediate results or have a clear start and end point.
+
+According to Macenski (2021), services provide a blocking communication mechanism that ensures request completion before the client continues execution, making them suitable for operations that must be completed before proceeding (Macenski, S. (2021). *Professional Robotics: Tools and Applications for Robot Development*. Apress).
+
+## Service Architecture
+
+### Service Servers and Clients
+
+A service in ROS 2 consists of two components:
+- **Service Server**: Provides the service functionality and processes requests
+- **Service Client**: Makes requests to the service server and receives responses
+
+The service interface is defined by a service description file (.srv) that specifies the request and response message structures.
+
+### Service Interface Definition
+
+Service interfaces are defined using `.srv` files that specify the request and response message formats separated by a `---`:
+
+```
+# Example service definition in example_interfaces/srv/AddTwoInts.srv
+int64 a
+int64 b
+---
+int64 sum
+```
+
+The part before the `---` defines the request message, and the part after defines the response message.
+
+## Creating Service Servers
+
+### Python Implementation
+
+Creating a service server in Python involves defining a callback function that processes requests and returns responses:
+
+```python
+import rclpy
+from rclpy.node import Node
+from example_interfaces.srv import AddTwoInts
+
+class ServiceServerNode(Node):
+    def __init__(self):
+        super().__init__('service_server_node')
+        # Create service with service type, name, and callback
+        self.srv = self.create_service(
+            AddTwoInts,
+            'add_two_ints',
+            self.add_two_ints_callback
+        )
+
+    def add_two_ints_callback(self, request, response):
+        response.sum = request.a + request.b
+        self.get_logger().info(f'Returning {response.sum}')
+        return response
+```
+
+### C++ Implementation
+
+In C++, service servers are created similarly:
+
+```cpp
+#include "rclcpp/rclcpp.hpp"
+#include "example_interfaces/srv/add_two_ints.hpp"
+
+class ServiceServerNode : public rclcpp::Node
+{
+public:
+    ServiceServerNode() : Node("service_server_node")
+    {
+        service_ = this->create_service<example_interfaces::srv::AddTwoInts>(
+            "add_two_ints",
+            std::bind(&ServiceServerNode::handle_service, this,
+                     std::placeholders::_1, std::placeholders::_2));
+    }
+
+private:
+    void handle_service(
+        const example_interfaces::srv::AddTwoInts::Request::SharedPtr request,
+        example_interfaces::srv::AddTwoInts::Response::SharedPtr response)
+    {
+        response->sum = request->a + request->b;
+        RCLCPP_INFO(this->get_logger(), "Returning %ld", response->sum);
+    }
+    rclcpp::Service<example_interfaces::srv::AddTwoInts>::SharedPtr service_;
+};
+```
+
+## Creating Service Clients
+
+### Python Implementation
+
+Service clients make requests to service servers and wait for responses:
+
+```python
+import rclpy
+from rclpy.node import Node
+from example_interfaces.srv import AddTwoInts
+
+class ServiceClientNode(Node):
+    def __init__(self):
+        super().__init__('service_client_node')
+        # Create client for the service
+        self.cli = self.create_client(AddTwoInts, 'add_two_ints')
+
+        # Wait for service to be available
+        while not self.cli.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('Service not available, waiting again...')
+
+        self.req = AddTwoInts.Request()
+
+    def send_request(self, a, b):
+        self.req.a = a
+        self.req.b = b
+        # Make asynchronous service call
+        self.future = self.cli.call_async(self.req)
+        return self.future
+```
+
+### C++ Implementation
+
+```cpp
+#include "rclcpp/rclcpp.hpp"
+#include "example_interfaces/srv/add_two_ints.hpp"
+
+class ServiceClientNode : public rclcpp::Node
+{
+public:
+    ServiceClientNode() : Node("service_client_node")
+    {
+        client_ = this->create_client<example_interfaces::srv::AddTwoInts>("add_two_ints");
+    }
+
+    void send_request(int64_t a, int64_t b)
+    {
+        auto request = std::make_shared<example_interfaces::srv::AddTwoInts::Request>();
+        request->a = a;
+        request->b = b;
+
+        while (!client_->wait_for_service(std::chrono::seconds(1))) {
+            if (!rclcpp::ok()) {
+                RCLCPP_ERROR(this->get_logger(), "Interrupted while waiting for service");
+                return;
+            }
+            RCLCPP_INFO(this->get_logger(), "Service not available, waiting again...");
+        }
+
+        auto result = client_->async_send_request(request);
+    }
+
+private:
+    rclcpp::Client<example_interfaces::srv::AddTwoInts>::SharedPtr client_;
+};
+```
+
+## Service Communication Flow
+
+The service communication follows these steps:
+
+1. **Service Discovery**: Client discovers available services through the ROS 2 graph
+2. **Request Transmission**: Client sends request to the service server
+3. **Request Processing**: Server processes the request and prepares response
+4. **Response Transmission**: Server sends response back to the client
+5. **Response Handling**: Client receives and processes the response
+
+This synchronous flow ensures that the client receives a response before continuing execution.
+
+## Standard Service Types
+
+ROS 2 provides several standard service types in the `std_srvs` package:
+
+- `Empty`: Simple service with no request or response data
+- `SetBool`: Service for setting boolean values
+- `Trigger`: Service for triggering actions with success/failure response
+- `SetString`: Service for setting string values
+
+## Creating Custom Services
+
+### Defining Custom Service Types
+
+Custom services are defined in `.srv` files within a ROS 2 package:
+
+```
+# custom_services/srv/MoveRobot.srv
+# Request fields
+float64 x
+float64 y
+float64 theta
+---
+# Response fields
+bool success
+string message
+```
+
+### Using Custom Services
+
+After defining a custom service, it can be used like standard services:
+
+```python
+# Import the custom service type
+from custom_services.srv import MoveRobot
+
+class CustomServiceServer(Node):
+    def __init__(self):
+        super().__init__('custom_service_server')
+        self.srv = self.create_service(
+            MoveRobot,
+            'move_robot',
+            self.move_robot_callback
+        )
+
+    def move_robot_callback(self, request, response):
+        # Process the move request
+        success = self.execute_move(request.x, request.y, request.theta)
+        response.success = success
+        response.message = "Move completed" if success else "Move failed"
+        return response
+```
+
+## Advanced Service Features
+
+### Service Callback Groups
+
+Service callbacks can be organized into callback groups for better execution control:
+
+```python
+from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
+
+class AdvancedServiceNode(Node):
+    def __init__(self):
+        super().__init__('advanced_service_node')
+
+        # Create a callback group
+        cb_group = MutuallyExclusiveCallbackGroup()
+
+        # Assign service to callback group
+        self.srv = self.create_service(
+            AddTwoInts,
+            'add_two_ints',
+            self.add_two_ints_callback,
+            callback_group=cb_group
+        )
+```
+
+### Service Timeout Handling
+
+Service clients should handle timeouts appropriately:
+
+```python
+def send_request_with_timeout(self, a, b):
+    self.req.a = a
+    self.req.b = b
+
+    # Make service call
+    future = self.cli.call_async(self.req)
+
+    # Wait for response with timeout
+    try:
+        rclpy.spin_until_future_complete(self, future, timeout_sec=5.0)
+        if future.done():
+            result = future.result()
+            return result
+        else:
+            self.get_logger().error('Service call timed out')
+            return None
+    except Exception as e:
+        self.get_logger().error(f'Service call failed: {e}')
+        return None
+```
+
+## Common Use Cases
+
+### Parameter Management
+
+Services are commonly used for parameter configuration and retrieval:
+
+```python
+# Service for setting robot parameters
+set_param_srv = self.create_service(SetParameters, 'set_parameters', self.set_params_callback)
+
+# Service for getting robot parameters
+get_param_srv = self.create_service(GetParameters, 'get_parameters', self.get_params_callback)
+```
+
+### System Control
+
+Services provide interfaces for system-level operations:
+
+```python
+# Service for calibrating sensors
+calibrate_srv = self.create_service(Trigger, 'calibrate_sensors', self.calibrate_callback)
+
+# Service for starting/stopping subsystems
+control_srv = self.create_service(SetBool, 'enable_system', self.enable_callback)
+```
+
+### Diagnostic Services
+
+Services can provide diagnostic information about system status:
+
+```python
+# Service for system health check
+health_srv = self.create_service(GetHealth, 'get_system_health', self.health_callback)
+```
+
+## Best Practices
+
+### Service Design
+
+- Use services for operations that require immediate results
+- Keep service operations relatively fast to avoid blocking clients
+- Design service interfaces with clear request/response semantics
+- Use appropriate service types for the operation (synchronous vs. asynchronous)
+
+### Error Handling
+
+- Implement proper error handling in service callbacks
+- Return meaningful error messages in service responses
+- Handle service unavailability in clients
+- Use timeouts to prevent indefinite blocking
+
+### Performance Considerations
+
+- Avoid long-running operations in service callbacks
+- Consider using actions instead of services for long-running operations
+- Monitor service response times for performance optimization
+
+## Comparison with Other Communication Patterns
+
+### Services vs. Topics
+
+- **Services**: Synchronous, request-response, one-to-one
+- **Topics**: Asynchronous, publish-subscribe, one-to-many/many-to-many
+
+### Services vs. Actions
+
+- **Services**: Synchronous, single request-response
+- **Actions**: Asynchronous, goal-feedback-result with cancellation support
+
+## Summary
+
+Services provide essential synchronous communication capabilities in ROS 2 for operations that require immediate results or have clear request-response semantics. Understanding how to properly implement service servers and clients, design service interfaces, and handle various service scenarios is crucial for building robust robotic systems. Services complement topics and actions to provide a complete communication framework for diverse robotic applications.
+
+## References
+
+Macenski, S. (2021). *Professional Robotics: Tools and Applications for Robot Development*. Apress.

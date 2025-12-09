@@ -1,0 +1,742 @@
+---
+title: XACRO Format Explained
+description: Detailed explanation of XML Macros for Robots (XACRO) and advanced robot modeling
+sidebar_position: 3
+---
+
+# XACRO Format Explained
+
+## Introduction to XACRO
+
+XACRO (XML Macros) is an XML macro language that extends URDF with additional features to make robot descriptions more maintainable and reusable. XACRO allows for constants, properties, mathematical expressions, and macros, making it particularly useful for complex robots with repetitive structures or multiple variants.
+
+According to the ROS documentation, XACRO addresses the limitations of pure URDF by providing a more expressive and maintainable way to describe robots (ROS.org, 2023). The XACRO processor converts XACRO files into standard URDF files that can be used by ROS tools.
+
+## XACRO vs URDF
+
+### Advantages of XACRO
+
+While URDF is the fundamental format for robot descriptions, XACRO provides several key advantages:
+
+1. **Constants and Properties**: Define values once and reuse them throughout the description
+2. **Mathematical Expressions**: Perform calculations using Python syntax
+3. **Macros**: Create reusable components for repetitive structures
+4. **Conditional Inclusion**: Include or exclude components based on parameters
+5. **Inclusion of Other Files**: Modularize robot descriptions across multiple files
+
+### Basic XACRO Structure
+
+```xml
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="robot_name">
+  <!-- XACRO content goes here -->
+</robot>
+```
+
+The `xmlns:xacro` namespace declaration is required to use XACRO features.
+
+## XACRO Properties and Constants
+
+### Defining Properties
+
+Properties in XACRO are similar to constants in programming languages:
+
+```xml
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="simple_robot">
+
+  <!-- Define simple properties -->
+  <xacro:property name="PI" value="3.1415926535897931" />
+  <xacro:property name="wheel_radius" value="0.1" />
+  <xacro:property name="wheel_width" value="0.05" />
+  <xacro:property name="robot_mass" value="10.0" />
+
+  <!-- Define complex properties -->
+  <xacro:property name="robot_dimensions">
+    <length>1.0</length>
+    <width>0.8</width>
+    <height>0.2</height>
+  </xacro:property>
+
+  <!-- Use properties in URDF elements -->
+  <link name="base_link">
+    <visual>
+      <geometry>
+        <box size="${robot_dimensions/length} ${robot_dimensions/width} ${robot_dimensions/height}"/>
+      </geometry>
+    </visual>
+    <collision>
+      <geometry>
+        <box size="${robot_dimensions/length} ${robot_dimensions/width} ${robot_dimensions/height}"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="${robot_mass}"/>
+      <inertia
+        ixx="${robot_mass * (robot_dimensions/width * robot_dimensions/width + robot_dimensions/height * robot_dimensions/height) / 12.0}"
+        ixy="0.0" ixz="0.0"
+        iyy="${robot_mass * (robot_dimensions/length * robot_dimensions/length + robot_dimensions/height * robot_dimensions/height) / 12.0}"
+        iyz="0.0"
+        izz="${robot_mass * (robot_dimensions/length * robot_dimensions/length + robot_dimensions/width * robot_dimensions/width) / 12.0}"/>
+    </inertial>
+  </link>
+</robot>
+```
+
+### Mathematical Expressions
+
+XACRO supports mathematical expressions using Python syntax:
+
+```xml
+<xacro:property name="wheel_circumference" value="${2 * PI * wheel_radius}" />
+<xacro:property name="half_wheel_width" value="${wheel_width / 2.0}" />
+<xacro:property name="sqrt_value" value="${sqrt(2.0)}" />
+<xacro:property name="power_value" value="${pow(2.0, 3.0)}" />
+<xacro:property name="conditional_value" value="${1.0 if wheel_radius > 0.05 else 0.5}" />
+```
+
+## XACRO Macros
+
+### Defining and Using Macros
+
+Macros are one of XACRO's most powerful features, allowing for reusable robot components:
+
+```xml
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="macro_robot">
+
+  <!-- Define a macro for creating wheels -->
+  <xacro:macro name="wheel" params="prefix parent xyz *origin *geometry">
+    <!-- Joint definition -->
+    <joint name="${prefix}_wheel_joint" type="continuous">
+      <parent link="${parent}"/>
+      <child link="${prefix}_wheel"/>
+      <xacro:insert_block name="origin"/>
+      <axis xyz="0 1 0"/>
+    </joint>
+
+    <!-- Link definition -->
+    <link name="${prefix}_wheel">
+      <visual>
+        <xacro:insert_block name="geometry"/>
+      </visual>
+      <collision>
+        <xacro:insert_block name="geometry"/>
+      </collision>
+      <inertial>
+        <mass value="1.0"/>
+        <inertia ixx="0.1" ixy="0.0" ixz="0.0" iyy="0.1" iyz="0.0" izz="0.1"/>
+      </inertial>
+    </link>
+  </xacro:macro>
+
+  <!-- Define wheel geometry as a block -->
+  <xacro:property name="wheel_geometry">
+    <geometry>
+      <cylinder radius="0.1" length="0.05"/>
+    </geometry>
+  </xacro:property>
+
+  <!-- Use the macro to create multiple wheels -->
+  <xacro:wheel
+    prefix="front_left"
+    parent="base_link"
+    xyz="0.5 0.3 0">
+    <origin xyz="0.5 0.3 0" rpy="0 0 0"/>
+    <xacro:insert_block name="wheel_geometry"/>
+  </xacro:wheel>
+
+  <xacro:wheel
+    prefix="front_right"
+    parent="base_link"
+    xyz="0.5 -0.3 0">
+    <origin xyz="0.5 -0.3 0" rpy="0 0 0"/>
+    <xacro:insert_block name="wheel_geometry"/>
+  </xacro:wheel>
+
+  <!-- Base link -->
+  <link name="base_link">
+    <visual>
+      <geometry>
+        <box size="1.0 0.8 0.2"/>
+      </geometry>
+    </visual>
+    <collision>
+      <geometry>
+        <box size="1.0 0.8 0.2"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="10.0"/>
+      <inertia ixx="1.0" ixy="0.0" ixz="0.0" iyy="1.0" iyz="0.0" izz="1.0"/>
+    </inertial>
+  </link>
+</robot>
+```
+
+### Macro Parameters
+
+XACRO macros support various types of parameters:
+
+```xml
+<!-- Simple parameters -->
+<xacro:macro name="simple_macro" params="param1 param2">
+  <link name="${param1}_link">
+    <visual>
+      <geometry>
+        <box size="${param2} ${param2} ${param2}"/>
+      </geometry>
+    </visual>
+  </link>
+</xacro:macro>
+
+<!-- Parameters with default values -->
+<xacro:macro name="default_macro" params="prefix:=default size:=1.0 color:=blue">
+  <link name="${prefix}_link">
+    <visual>
+      <geometry>
+        <box size="${size} ${size} ${size}"/>
+      </geometry>
+      <material name="${color}"/>
+    </visual>
+  </link>
+</xacro:macro>
+
+<!-- Block parameters (for complex content) -->
+<xacro:macro name="block_macro" params="prefix *visual_block *collision_block">
+  <link name="${prefix}_link">
+    <xacro:insert_block name="visual_block"/>
+    <xacro:insert_block name="collision_block"/>
+  </link>
+</xacro:macro>
+
+<!-- Using the block macro -->
+<xacro:block_macro prefix="test">
+  <visual_block>
+    <visual>
+      <geometry>
+        <box size="1 1 1"/>
+      </geometry>
+    </visual>
+  </visual_block>
+  <collision_block>
+    <collision>
+      <geometry>
+        <box size="1 1 1"/>
+      </geometry>
+    </collision>
+  </collision_block>
+</xacro:block_macro>
+```
+
+## Advanced XACRO Features
+
+### Conditional Statements
+
+XACRO supports conditional inclusion of elements:
+
+```xml
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="conditional_robot">
+
+  <!-- Define properties for conditions -->
+  <xacro:property name="has_lidar" value="true" />
+  <xacro:property name="robot_type" value="wheeled" />
+
+  <!-- Base link -->
+  <link name="base_link">
+    <visual>
+      <geometry>
+        <box size="1.0 0.8 0.2"/>
+      </geometry>
+    </visual>
+  </link>
+
+  <!-- Conditionally include lidar -->
+  <xacro:if value="${has_lidar}">
+    <joint name="lidar_mount_joint" type="fixed">
+      <parent link="base_link"/>
+      <child link="lidar_link"/>
+      <origin xyz="0 0 0.2" rpy="0 0 0"/>
+    </joint>
+
+    <link name="lidar_link">
+      <visual>
+        <geometry>
+          <cylinder radius="0.05" length="0.05"/>
+        </geometry>
+      </visual>
+    </link>
+  </xacro:if>
+
+  <!-- Conditionally include different wheel types based on robot type -->
+  <xacro:if value="${robot_type == 'wheeled'}">
+    <xacro:property name="wheel_radius" value="0.1" />
+    <xacro:property name="wheel_width" value="0.05" />
+  </xacro:if>
+
+  <xacro:if value="${robot_type == 'tracked'}">
+    <xacro:property name="track_width" value="0.2" />
+    <xacro:property name="track_length" value="0.8" />
+  </xacro:if>
+
+  <!-- Include different components based on conditions -->
+  <xacro:unless value="${has_lidar}">
+    <link name="dummy_link">
+      <visual>
+        <geometry>
+          <box size="0.01 0.01 0.01"/>
+        </geometry>
+      </visual>
+    </link>
+  </xacro:unless>
+</robot>
+```
+
+### File Inclusion
+
+XACRO supports including other XACRO files for modular design:
+
+```xml
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="modular_robot">
+
+  <!-- Include common definitions -->
+  <xacro:include filename="$(find my_robot_description)/urdf/materials.xacro" />
+  <xacro:include filename="$(find my_robot_description)/urdf/transmissions.xacro" />
+  <xacro:include filename="$(find my_robot_description)/urdf/gazebo.xacro" />
+
+  <!-- Include robot-specific components -->
+  <xacro:include filename="$(find my_robot_description)/urdf/arms.xacro" />
+  <xacro:include filename="$(find my_robot_description)/urdf/sensors.xacro" />
+
+  <!-- Robot-specific content -->
+  <link name="base_link">
+    <visual>
+      <geometry>
+        <mesh filename="package://my_robot_description/meshes/base.dae"/>
+      </geometry>
+      <material name="blue"/>
+    </visual>
+  </link>
+</robot>
+```
+
+### Arguments and Launch Integration
+
+XACRO can accept arguments that can be passed from launch files:
+
+```xml
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="argument_robot">
+
+  <!-- Define arguments with default values -->
+  <xacro:arg name="robot_name" default="my_robot" />
+  <xacro:arg name="has_camera" default="false" />
+  <xacro:arg name="wheel_type" default="standard" />
+
+  <!-- Use arguments in the robot definition -->
+  <link name="$(arg robot_name)_base_link">
+    <visual>
+      <geometry>
+        <box size="1.0 0.8 0.2"/>
+      </geometry>
+    </visual>
+  </link>
+
+  <!-- Conditionally include components based on arguments -->
+  <xacro:if value="$(arg has_camera)">
+    <joint name="camera_mount_joint" type="fixed">
+      <parent link="$(arg robot_name)_base_link"/>
+      <child link="camera_link"/>
+      <origin xyz="0.2 0 0.1" rpy="0 0 0"/>
+    </joint>
+
+    <link name="camera_link">
+      <visual>
+        <geometry>
+          <box size="0.05 0.05 0.05"/>
+        </geometry>
+      </visual>
+    </link>
+  </xacro:if>
+
+  <!-- Include different wheel types based on argument -->
+  <xacro:if value="$(arg wheel_type) == 'mecanum'">
+    <xacro:include filename="$(find my_robot_description)/urdf/mecanum_wheels.xacro" />
+  </xacro:if>
+
+  <xacro:if value="$(arg wheel_type) == 'standard'">
+    <xacro:include filename="$(find my_robot_description)/urdf/standard_wheels.xacro" />
+  </xacro:if>
+</robot>
+```
+
+## Complex XACRO Example: Humanoid Robot
+
+Here's a more complex example showing XACRO features applied to a humanoid robot:
+
+```xml
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="humanoid_robot">
+
+  <!-- Constants and properties -->
+  <xacro:property name="M_PI" value="3.1415926535897931" />
+  <xacro:property name="torso_height" value="0.5" />
+  <xacro:property name="torso_width" value="0.3" />
+  <xacro:property name="torso_depth" value="0.2" />
+  <xacro:property name="arm_length" value="0.4" />
+  <xacro:property name="leg_length" value="0.6" />
+  <xacro:property name="head_radius" value="0.1" />
+
+  <!-- Macro for creating arm joints and links -->
+  <xacro:macro name="arm" params="side parent xyz_offset">
+    <!-- Shoulder joint -->
+    <joint name="${side}_shoulder_pan_joint" type="revolute">
+      <parent link="${parent}"/>
+      <child link="${side}_upper_arm"/>
+      <origin xyz="${xyz_offset}" rpy="0 0 0"/>
+      <axis xyz="0 1 0"/>
+      <limit lower="${-M_PI/2}" upper="${M_PI/2}" effort="100.0" velocity="1.0"/>
+    </joint>
+
+    <link name="${side}_upper_arm">
+      <visual>
+        <geometry>
+          <cylinder radius="0.05" length="${arm_length}"/>
+        </geometry>
+        <origin xyz="0 0 ${arm_length/2}" rpy="0 0 0"/>
+      </visual>
+      <collision>
+        <geometry>
+          <cylinder radius="0.05" length="${arm_length}"/>
+        </geometry>
+        <origin xyz="0 0 ${arm_length/2}" rpy="0 0 0"/>
+      </collision>
+      <inertial>
+        <mass value="1.0"/>
+        <inertia ixx="0.01" ixy="0.0" ixz="0.0" iyy="0.01" iyz="0.0" izz="0.01"/>
+      </inertial>
+    </link>
+
+    <!-- Elbow joint -->
+    <joint name="${side}_elbow_joint" type="revolute">
+      <parent link="${side}_upper_arm"/>
+      <child link="${side}_lower_arm"/>
+      <origin xyz="0 0 ${arm_length}" rpy="0 0 0"/>
+      <axis xyz="0 1 0"/>
+      <limit lower="${-M_PI/2}" upper="${M_PI/2}" effort="100.0" velocity="1.0"/>
+    </joint>
+
+    <link name="${side}_lower_arm">
+      <visual>
+        <geometry>
+          <cylinder radius="0.04" length="${arm_length}"/>
+        </geometry>
+        <origin xyz="0 0 ${arm_length/2}" rpy="0 0 0"/>
+      </visual>
+      <collision>
+        <geometry>
+          <cylinder radius="0.04" length="${arm_length}"/>
+        </geometry>
+        <origin xyz="0 0 ${arm_length/2}" rpy="0 0 0"/>
+      </collision>
+      <inertial>
+        <mass value="0.8"/>
+        <inertia ixx="0.008" ixy="0.0" ixz="0.0" iyy="0.008" iyz="0.0" izz="0.008"/>
+      </inertial>
+    </link>
+  </xacro:macro>
+
+  <!-- Macro for creating leg joints and links -->
+  <xacro:macro name="leg" params="side parent xyz_offset">
+    <!-- Hip joint -->
+    <joint name="${side}_hip_joint" type="revolute">
+      <parent link="${parent}"/>
+      <child link="${side}_upper_leg"/>
+      <origin xyz="${xyz_offset}" rpy="0 0 0"/>
+      <axis xyz="0 1 0"/>
+      <limit lower="${-M_PI/2}" upper="${M_PI/2}" effort="150.0" velocity="1.0"/>
+    </joint>
+
+    <link name="${side}_upper_leg">
+      <visual>
+        <geometry>
+          <cylinder radius="0.06" length="${leg_length}"/>
+        </geometry>
+        <origin xyz="0 0 ${leg_length/2}" rpy="0 0 0"/>
+      </visual>
+      <collision>
+        <geometry>
+          <cylinder radius="0.06" length="${leg_length}"/>
+        </geometry>
+        <origin xyz="0 0 ${leg_length/2}" rpy="0 0 0"/>
+      </collision>
+      <inertial>
+        <mass value="2.0"/>
+        <inertia ixx="0.02" ixy="0.0" ixz="0.0" iyy="0.02" iyz="0.0" izz="0.02"/>
+      </inertial>
+    </link>
+
+    <!-- Knee joint -->
+    <joint name="${side}_knee_joint" type="revolute">
+      <parent link="${side}_upper_leg"/>
+      <child link="${side}_lower_leg"/>
+      <origin xyz="0 0 ${leg_length}" rpy="0 0 0"/>
+      <axis xyz="0 1 0"/>
+      <limit lower="0" upper="${M_PI/2}" effort="150.0" velocity="1.0"/>
+    </joint>
+
+    <link name="${side}_lower_leg">
+      <visual>
+        <geometry>
+          <cylinder radius="0.05" length="${leg_length}"/>
+        </geometry>
+        <origin xyz="0 0 ${leg_length/2}" rpy="0 0 0"/>
+      </visual>
+      <collision>
+        <geometry>
+          <cylinder radius="0.05" length="${leg_length}"/>
+        </geometry>
+        <origin xyz="0 0 ${leg_length/2}" rpy="0 0 0"/>
+      </collision>
+      <inertial>
+        <mass value="1.5"/>
+        <inertia ixx="0.015" ixy="0.0" ixz="0.0" iyy="0.015" iyz="0.0" izz="0.015"/>
+      </inertial>
+    </link>
+
+    <!-- Ankle joint -->
+    <joint name="${side}_ankle_joint" type="revolute">
+      <parent link="${side}_lower_leg"/>
+      <child link="${side}_foot"/>
+      <origin xyz="0 0 ${leg_length}" rpy="0 0 0"/>
+      <axis xyz="0 1 0"/>
+      <limit lower="${-M_PI/4}" upper="${M_PI/4}" effort="100.0" velocity="1.0"/>
+    </joint>
+
+    <link name="${side}_foot">
+      <visual>
+        <geometry>
+          <box size="0.2 0.1 0.05"/>
+        </geometry>
+      </visual>
+      <collision>
+        <geometry>
+          <box size="0.2 0.1 0.05"/>
+        </geometry>
+      </collision>
+      <inertial>
+        <mass value="0.5"/>
+        <inertia ixx="0.001" ixy="0.0" ixz="0.0" iyy="0.001" iyz="0.0" izz="0.001"/>
+      </inertial>
+    </link>
+  </xacro:macro>
+
+  <!-- Torso -->
+  <link name="torso">
+    <visual>
+      <geometry>
+        <box size="${torso_width} ${torso_depth} ${torso_height}"/>
+      </geometry>
+    </visual>
+    <collision>
+      <geometry>
+        <box size="${torso_width} ${torso_depth} ${torso_height}"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="10.0"/>
+      <inertia ixx="1.0" ixy="0.0" ixz="0.0" iyy="1.0" iyz="0.0" izz="1.0"/>
+    </inertial>
+  </link>
+
+  <!-- Head -->
+  <joint name="neck_joint" type="revolute">
+    <parent link="torso"/>
+    <child link="head"/>
+    <origin xyz="0 0 ${torso_height/2 + head_radius}" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="${-M_PI/4}" upper="${M_PI/4}" effort="50.0" velocity="1.0"/>
+  </joint>
+
+  <link name="head">
+    <visual>
+      <geometry>
+        <sphere radius="${head_radius}"/>
+      </geometry>
+    </visual>
+    <collision>
+      <geometry>
+        <sphere radius="${head_radius}"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="2.0"/>
+      <inertia ixx="0.02" ixy="0.0" ixz="0.0" iyy="0.02" iyz="0.0" izz="0.02"/>
+    </inertial>
+  </link>
+
+  <!-- Arms -->
+  <xacro:arm side="left" parent="torso" xyz_offset="${torso_width/2} 0.1 ${torso_height/4}"/>
+  <xacro:arm side="right" parent="torso" xyz_offset="${torso_width/2} -0.1 ${torso_height/4}"/>
+
+  <!-- Legs -->
+  <xacro:leg side="left" parent="torso" xyz_offset="0 0.1 ${-torso_height/2}"/>
+  <xacro:leg side="right" parent="torso" xyz_offset="0 -0.1 ${-torso_height/2}"/>
+
+</robot>
+```
+
+## Processing XACRO Files
+
+### Command Line Processing
+
+XACRO files need to be processed to generate URDF:
+
+```bash
+# Convert XACRO to URDF
+xacro input.xacro -o output.urdf
+
+# Convert with arguments
+xacro input.xacro robot_name:=my_robot has_camera:=true -o output.urdf
+
+# Check XACRO syntax without output
+xacro --check-order input.xacro
+```
+
+### In Launch Files
+
+XACRO files can be processed directly in launch files:
+
+```python
+from launch import LaunchDescription
+from launch.actions import DeclareLaunchArgument
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+from launch_ros.actions import Node
+from launch_ros.substitutions import FindPackageShare
+
+def generate_launch_description():
+    # Declare launch arguments
+    robot_name_launch_arg = DeclareLaunchArgument(
+        'robot_name',
+        default_value='my_robot',
+        description='Name of the robot'
+    )
+
+    # Get launch configuration
+    robot_name = LaunchConfiguration('robot_name')
+
+    # Process XACRO and set robot description parameter
+    robot_state_publisher_node = Node(
+        package='robot_state_publisher',
+        executable='robot_state_publisher',
+        parameters=[{
+            'robot_description': Command([
+                PathJoinSubstitution([FindPackageShare('my_robot_description'), 'urdf', 'robot.xacro']),
+                ' robot_name:=', robot_name
+            ])
+        }]
+    )
+
+    return LaunchDescription([
+        robot_name_launch_arg,
+        robot_state_publisher_node
+    ])
+```
+
+## Best Practices for XACRO
+
+### Organization and Structure
+
+1. **Modular Design**: Split complex robots into multiple XACRO files
+2. **Consistent Naming**: Use clear, consistent naming conventions
+3. **Documentation**: Comment complex XACRO expressions and macros
+4. **Validation**: Regularly validate XACRO files to catch errors early
+
+### Performance Considerations
+
+1. **Avoid Complex Expressions**: Keep mathematical expressions simple for better processing speed
+2. **Minimize Nesting**: Avoid deeply nested macros for readability
+3. **Cache Computed Values**: Store computed values in properties rather than recalculating
+
+### Common Patterns
+
+```xml
+<!-- Standard header for XACRO files -->
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="robot_name">
+
+<!-- Define all constants at the top -->
+<xacro:property name="M_PI" value="3.1415926535897931" />
+<xacro:property name="robot_scale" value="1.0" />
+
+<!-- Include external files -->
+<xacro:include filename="$(find my_robot_description)/urdf/constants.xacro" />
+
+<!-- Define macros -->
+<xacro:macro name="wheel" params="prefix parent xyz">
+  <!-- Macro content -->
+</xacro:macro>
+
+<!-- Define the robot structure using macros and properties -->
+<link name="base_link">
+  <!-- Content -->
+</link>
+
+</robot>
+```
+
+## Troubleshooting XACRO
+
+### Common Errors
+
+1. **Namespace Issues**: Ensure `xmlns:xacro` is properly declared
+2. **Property Scope**: Properties are only available after they're defined
+3. **Mathematical Errors**: Check for division by zero or invalid operations
+4. **Macro Issues**: Ensure all required parameters are provided
+
+### Debugging Techniques
+
+```xml
+<!-- Add debug output to see computed values -->
+<xacro:property name="computed_value" value="${some_calculation}" />
+<!-- Comment: Debug - computed_value = $(computed_value) -->
+```
+
+## Integration with Simulation
+
+XACRO files are commonly used with simulation environments:
+
+```xml
+<!-- Gazebo-specific extensions -->
+<gazebo reference="link_name">
+  <material>Gazebo/Blue</material>
+  <mu1>0.2</mu1>
+  <mu2>0.2</mu2>
+</gazebo>
+
+<!-- Transmission definitions for hardware interfaces -->
+<xacro:macro name="transmission_block" params="name">
+  <transmission name="${name}_trans">
+    <type>transmission_interface/SimpleTransmission</type>
+    <joint name="${name}">
+      <hardwareInterface>hardware_interface/PositionJointInterface</hardwareInterface>
+    </joint>
+    <actuator name="${name}_motor">
+      <hardwareInterface>hardware_interface/PositionJointInterface</hardwareInterface>
+      <mechanicalReduction>1</mechanicalReduction>
+    </actuator>
+  </transmission>
+</xacro:macro>
+```
+
+## Summary
+
+XACRO significantly enhances the capabilities of URDF by providing macros, properties, mathematical expressions, and conditional statements. These features make it possible to create maintainable, reusable, and parameterized robot descriptions. For complex robots like humanoids with repetitive structures, XACRO is essential for managing the complexity and avoiding redundancy in robot descriptions.
+
+The combination of URDF's solid foundation and XACRO's advanced features provides a powerful system for describing robots of any complexity in ROS 2.
+
+## References
+
+ROS.org. (2023). *XACRO Documentation*. Retrieved from https://docs.ros.org/en/humble/

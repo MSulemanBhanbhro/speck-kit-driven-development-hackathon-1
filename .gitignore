@@ -1,0 +1,82 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Production builds
+/build/
+/dist/
+/out/
+
+# Environment variables
+.env*
+!.env.example
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# IDE specific
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Coverage
+coverage/
+.nyc_output/
+
+# Docusaurus
+.docusaurus/
+.temp/
+
+# Temporary files
+*.tmp
+*.temp
+
+# Testing
+coverage/
+.nyc_output/
+junit.xml
+
+# Universal patterns
+.DS_Store
+Thumbs.db
+*.log
+node_modules/
+.env*
+.DS_Store
+coverage/
+dist/
+build/
+out/
+.nyc_output/
+junit.xml
+temp/
+tmp/
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+desktop.ini

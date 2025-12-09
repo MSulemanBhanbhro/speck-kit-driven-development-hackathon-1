@@ -1,0 +1,77 @@
+---
+title: Robot Communication Fundamentals
+description: Understanding the core concepts of robot middleware, communication nodes, message passing, and service-based interactions
+sidebar_position: 1
+---
+
+# Robot Communication Fundamentals
+
+## Introduction to Robot Middleware
+
+Robot middleware serves as the communication backbone for robotic systems, enabling different software components to interact seamlessly. In the context of robotics, middleware provides the infrastructure for data exchange, service coordination, and distributed system management. The Robot Operating System 2 (ROS 2) is the current standard for robot middleware, offering a flexible and robust framework for developing complex robotic applications.
+
+According to Quigley et al. (2009), middleware in robotics addresses the challenge of integrating diverse hardware and software components that must work together to achieve complex tasks (Quigley, M., Conley, K., & Gerkey, B. P. (2009). *ROS: an open-source Robot Operating System*. ICRA Workshop on Open Source Software, 3, 5). ROS 2 builds on this foundation with enhanced features for security, real-time performance, and scalability.
+
+## The Role of Communication in Robotics
+
+Communication in robotics is fundamental to creating coordinated behavior among multiple components. Unlike traditional software applications, robotic systems must handle real-time sensor data, actuator commands, and coordination between various subsystems. This requires a communication framework that can handle:
+
+- **Real-time requirements**: Timely delivery of sensor and control data
+- **Distributed architecture**: Communication between components running on different hardware
+- **Heterogeneous systems**: Integration of diverse sensors, actuators, and processing units
+- **Scalability**: Ability to add new components without disrupting existing functionality
+
+## Core Communication Concepts
+
+### Nodes
+
+A node is the fundamental unit of computation in ROS 2. It represents a single process that performs computation and communicates with other nodes through topics, services, or actions. Each node has a unique name within the ROS 2 graph and can publish or subscribe to topics, provide or use services, and send or execute actions.
+
+The concept of nodes enables a distributed approach to robot software development, where complex behaviors emerge from the interaction of multiple specialized nodes. This architecture promotes modularity, reusability, and maintainability of robotic software systems (Macenski, S. (2021). *Professional Robotics: Tools and Applications for Robot Development*. Apress).
+
+### Topics and Message Passing
+
+Topics in ROS 2 provide an asynchronous communication mechanism based on a publish-subscribe pattern. Publishers send messages to topics, while subscribers receive messages from topics. This decoupling allows for flexible system design where publishers and subscribers can be developed independently and connected at runtime.
+
+Message passing through topics is particularly well-suited for streaming data such as sensor readings, actuator commands, and state information. The asynchronous nature of topics means that publishers and subscribers do not need to coordinate their execution directly, improving system robustness and flexibility.
+
+### Services
+
+Services provide synchronous request-response communication between nodes. A service client sends a request to a service server, which processes the request and returns a response. This pattern is ideal for operations that require immediate results or have a clear start and end point.
+
+Service-based communication is commonly used for operations such as:
+- Parameter configuration and retrieval
+- System status queries
+- One-time actions that return results
+- Diagnostic procedures
+
+## Communication Patterns in Practice
+
+The combination of nodes, topics, and services creates a flexible architecture for robotic systems. Complex behaviors emerge from the interaction of multiple nodes that communicate through these mechanisms. For example, a mobile robot might have:
+
+- A sensor node publishing laser scan data to a `/scan` topic
+- A localization node subscribing to the scan data and publishing position estimates to a `/pose` topic
+- A path planning node providing a service for computing navigation paths
+- A controller node that subscribes to desired paths and publishes motor commands
+
+This architecture allows each component to be developed, tested, and maintained independently while contributing to the overall system behavior.
+
+## Quality of Service (QoS)
+
+ROS 2 introduces Quality of Service (QoS) profiles to handle different communication requirements. QoS settings allow nodes to specify their requirements for reliability, durability, and history of messages. This is particularly important in robotics where different types of data have different requirements:
+
+- **Reliability**: Whether messages must be delivered reliably or can be lost
+- **Durability**: Whether late-joining subscribers should receive historical data
+- **History**: How many messages to keep for late joiners
+
+These settings ensure that the communication system can meet the specific requirements of different robotic applications.
+
+## Summary
+
+Understanding the fundamentals of robot communication is essential for developing effective robotic systems. The node-topic-service architecture provides a flexible and robust foundation for building complex robotic applications. As we progress through this module, we will explore these concepts in greater detail and implement practical examples that demonstrate their application in humanoid robotics.
+
+## References
+
+Macenski, S. (2021). *Professional Robotics: Tools and Applications for Robot Development*. Apress.
+
+Quigley, M., Conley, K., & Gerkey, B. P. (2009). ROS: an open-source Robot Operating System. ICRA Workshop on Open Source Software, 3, 5.

@@ -1,0 +1,1170 @@
+---
+title: Lifecycle Nodes
+description: Understanding and implementing lifecycle management for complex robotic systems
+sidebar_position: 3
+---
+
+# Lifecycle Nodes
+
+## Introduction to Lifecycle Nodes
+
+Lifecycle nodes in ROS 2 provide a structured approach to managing the state and behavior of nodes throughout their operational lifetime. Unlike regular nodes that start and run continuously, lifecycle nodes follow a well-defined state machine that allows for more sophisticated control over initialization, activation, deactivation, and cleanup processes. This is particularly important in complex robotic systems where components need to be initialized in a specific order, activated when needed, and deactivated safely.
+
+According to the ROS 2 design documentation, lifecycle nodes address the challenges of managing complex systems with multiple components that have different initialization requirements and operational states (ROS.org, 2023). They provide a framework for creating more robust and maintainable robotic applications.
+
+## Lifecycle Node State Machine
+
+### State Overview
+
+Lifecycle nodes follow a finite state machine with the following states:
+
+1. **Unconfigured**: The node is created but not yet configured
+2. **Inactive**: The node is configured but not yet active
+3. **Active**: The node is running and processing data
+4. **Error**: The node is in an error state
+5. **Finalized**: The node is shut down
+
+### State Transitions
+
+The state machine allows for the following transitions:
+
+- `Unconfigured → Inactive`: Configure transition
+- `Inactive → Unconfigured`: Cleanup transition
+- `Inactive → Active`: Activate transition
+- `Active → Inactive`: Deactivate transition
+- Any state → `Error`: Error transition
+- Any state → `Finalized`: Shutdown transition
+
+### Visual State Diagram
+
+```
+[Unconfigured] ←→ [Inactive] ←→ [Active]
+      ↓               ↓           ↓
+  [Finalized] ←→ [Shutting Down] [Deactivating]
+                        ↓
+                   [Error]
+                        ↓
+                   [Unconfigured]
+```
+
+## Lifecycle Node Implementation
+
+### Basic Lifecycle Node Structure
+
+```python
+import rclpy
+from rclpy.lifecycle import LifecycleNode, LifecycleState, TransitionCallbackReturn
+from rclpy.lifecycle import Node as rclpy_Node
+from std_msgs.msg import String
+
+
+class BasicLifecycleNode(LifecycleNode):
+    def __init__(self, node_name='basic_lifecycle_node'):
+        super().__init__(node_name)
+        self.get_logger().info('Lifecycle node initialized in unconfigured state')
+
+    def on_configure(self, state):
+        """
+        Callback for the configure transition.
+
+        Args:
+            state: The current state before transition
+
+        Returns:
+            TransitionCallbackReturn.SUCCESS or TransitionCallbackReturn.FAILURE
+        """
+        self.get_logger().info(f'Configuring node: {self.get_name()}')
+
+        # Initialize resources that don't require active communication
+        try:
+            # Create publishers and subscribers but don't activate them yet
+            self.pub = self.create_publisher(String, 'lifecycle_topic', 10)
+            self.timer = self.create_timer(1.0, self.timer_callback)
+
+            # Deactivate timer initially
+            self.timer.cancel()
+
+            self.get_logger().info('Node configured successfully')
+            return TransitionCallbackReturn.SUCCESS
+
+        except Exception as e:
+            self.get_logger().error(f'Failed to configure node: {e}')
+            return TransitionCallbackReturn.FAILURE
+
+    def on_cleanup(self, state):
+        """
+        Callback for the cleanup transition.
+
+        Args:
+            state: The current state before transition
+
+        Returns:
+            TransitionCallbackReturn.SUCCESS or TransitionCallbackReturn.FAILURE
+        """
+        self.get_logger().info(f'Cleaning up node: {self.get_name()}')
+
+        try:
+            # Clean up resources created during configuration
+            if hasattr(self, 'timer') and self.timer is not None:
+                self.timer.destroy()
+
+            self.get_logger().info('Node cleaned up successfully')
+            return TransitionCallbackReturn.SUCCESS
+
+        except Exception as e:
+            self.get_logger().error(f'Failed to clean up node: {e}')
+            return TransitionCallbackReturn.FAILURE
+
+    def on_activate(self, state):
+        """
+        Callback for the activate transition.
+
+        Args:
+            state: The current state before transition
+
+        Returns:
+            TransitionCallbackReturn.SUCCESS or TransitionCallbackReturn.FAILURE
+        """
+        self.get_logger().info(f'Activating node: {self.get_name()}')
+
+        try:
+            # Activate publishers and subscribers
+            self.pub.on_activate()
+
+            # Start timer
+            if hasattr(self, 'timer') and self.timer is not None:
+                self.timer.reset()
+
+            self.get_logger().info('Node activated successfully')
+            return TransitionCallbackReturn.SUCCESS
+
+        except Exception as e:
+            self.get_logger().error(f'Failed to activate node: {e}')
+            return TransitionCallbackReturn.FAILURE
+
+    def on_deactivate(self, state):
+        """
+        Callback for the deactivate transition.
+
+        Args:
+            state: The current state before transition
+
+        Returns:
+            TransitionCallbackReturn.SUCCESS or TransitionCallbackReturn.FAILURE
+        """
+        self.get_logger().info(f'Deactivating node: {self.get_name()}')
+
+        try:
+            # Deactivate publishers and subscribers
+            if hasattr(self, 'pub'):
+                self.pub.on_deactivate()
+
+            # Stop timer
+            if hasattr(self, 'timer') and self.timer is not None:
+                self.timer.cancel()
+
+            self.get_logger().info('Node deactivated successfully')
+            return TransitionCallbackReturn.SUCCESS
+
+        except Exception as e:
+            self.get_logger().error(f'Failed to deactivate node: {e}')
+            return TransitionCallbackReturn.FAILURE
+
+    def on_shutdown(self, state):
+        """
+        Callback for the shutdown transition.
+
+        Args:
+            state: The current state before transition
+
+        Returns:
+            TransitionCallbackReturn.SUCCESS or TransitionCallbackReturn.FAILURE
+        """
+        self.get_logger().info(f'Shutting down node: {self.get_name()}')
+
+        try:
+            # Perform final cleanup
+            if hasattr(self, 'timer') and self.timer is not None:
+                self.timer.destroy()
+
+            self.get_logger().info('Node shutdown successfully')
+            return TransitionCallbackReturn.SUCCESS
+
+        except Exception as e:
+            self.get_logger().error(f'Failed during shutdown: {e}')
+            return TransitionCallbackReturn.FAILURE
+
+    def on_error(self, state):
+        """
+        Callback for the error transition.
+
+        Args:
+            state: The current state before transition
+
+        Returns:
+            TransitionCallbackReturn.SUCCESS or TransitionCallbackReturn.FAILURE
+        """
+        self.get_logger().error(f'Error occurred in node: {self.get_name()}')
+        # Return SUCCESS to allow transition to error state
+        return TransitionCallbackReturn.SUCCESS
+
+    def timer_callback(self):
+        """Timer callback that only executes when node is active."""
+        msg = String()
+        msg.data = f'Hello from lifecycle node: {self.get_clock().now().nanoseconds}'
+        self.pub.publish(msg)
+        self.get_logger().info(f'Published: {msg.data}')
+
+
+def main(args=None):
+    rclpy.init(args=args)
+
+    lifecycle_node = BasicLifecycleNode()
+
+    try:
+        rclpy.spin(lifecycle_node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        lifecycle_node.destroy_node()
+        rclpy.shutdown()
+```
+
+### Advanced Lifecycle Node with Resource Management
+
+```python
+import rclpy
+from rclpy.lifecycle import LifecycleNode, LifecycleState, TransitionCallbackReturn
+from rclpy.executors import MultiThreadedExecutor
+from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
+from std_msgs.msg import String
+from sensor_msgs.msg import LaserScan
+import threading
+import time
+
+
+class AdvancedLifecycleNode(LifecycleNode):
+    def __init__(self, node_name='advanced_lifecycle_node'):
+        super().__init__(node_name)
+
+        # Initialize state tracking
+        self._state_lock = threading.RLock()
+        self._is_initialized = False
+        self._active_subscribers = []
+        self._active_publishers = []
+
+        # Initialize resources that don't depend on lifecycle state
+        self._sensor_data_buffer = []
+        self._max_buffer_size = 100
+
+        self.get_logger().info('Advanced lifecycle node initialized')
+
+    def on_configure(self, state):
+        """Configure the node with error handling and resource management."""
+        with self._state_lock:
+            self.get_logger().info(f'Configuring advanced node: {self.get_name()}')
+
+            try:
+                # Initialize complex resources
+                self._initialize_resources()
+
+                # Set up callback groups for better execution control
+                self._service_cb_group = MutuallyExclusiveCallbackGroup()
+                self._timer_cb_group = MutuallyExclusiveCallbackGroup()
+
+                # Create publishers (but don't activate them yet)
+                self._status_pub = self.create_publisher(String, 'node_status', 10)
+                self._active_publishers.append(self._status_pub)
+
+                # Create timer (but don't start it yet)
+                self._timer = self.create_timer(
+                    1.0,
+                    self._timer_callback,
+                    callback_group=self._timer_cb_group
+                )
+                self._timer.cancel()  # Don't start timer yet
+
+                # Create subscription (but don't activate it yet)
+                self._scan_sub = self.create_subscription(
+                    LaserScan,
+                    'scan',
+                    self._scan_callback,
+                    10,
+                    callback_group=self._service_cb_group
+                )
+                self._active_subscribers.append(self._scan_sub)
+
+                self._is_initialized = True
+                self._publish_status('CONFIGURED')
+                self.get_logger().info('Advanced node configured successfully')
+                return TransitionCallbackReturn.SUCCESS
+
+            except Exception as e:
+                self.get_logger().error(f'Configuration failed: {e}')
+                return TransitionCallbackReturn.FAILURE
+
+    def on_activate(self, state):
+        """Activate the node with validation and activation of resources."""
+        with self._state_lock:
+            self.get_logger().info(f'Activating advanced node: {self.get_name()}')
+
+            try:
+                # Validate that configuration was successful
+                if not self._is_initialized:
+                    self.get_logger().error('Node not properly initialized')
+                    return TransitionCallbackReturn.FAILURE
+
+                # Additional activation steps
+                self._perform_activation_steps()
+
+                # Activate publishers
+                for pub in self._active_publishers:
+                    pub.on_activate()
+
+                # Activate subscribers
+                for sub in self._active_subscribers:
+                    # Subscribers are active by default, but we track them for consistency
+                    pass
+
+                # Start timer
+                if hasattr(self, '_timer') and self._timer is not None:
+                    self._timer.reset()
+
+                self._publish_status('ACTIVE')
+                self.get_logger().info('Advanced node activated successfully')
+                return TransitionCallbackReturn.SUCCESS
+
+            except Exception as e:
+                self.get_logger().error(f'Activation failed: {e}')
+                return TransitionCallbackReturn.FAILURE
+
+    def on_deactivate(self, state):
+        """Deactivate the node safely."""
+        with self._state_lock:
+            self.get_logger().info(f'Deactivating advanced node: {self.get_name()}')
+
+            try:
+                # Perform deactivation steps
+                self._perform_deactivation_steps()
+
+                # Deactivate publishers
+                for pub in self._active_publishers:
+                    pub.on_deactivate()
+
+                # Stop timer
+                if hasattr(self, '_timer') and self._timer is not None:
+                    self._timer.cancel()
+
+                self._publish_status('INACTIVE')
+                self.get_logger().info('Advanced node deactivated successfully')
+                return TransitionCallbackReturn.SUCCESS
+
+            except Exception as e:
+                self.get_logger().error(f'Deactivation failed: {e}')
+                return TransitionCallbackReturn.FAILURE
+
+    def on_cleanup(self, state):
+        """Clean up resources during cleanup transition."""
+        with self._state_lock:
+            self.get_logger().info(f'Cleaning up advanced node: {self.get_name()}')
+
+            try:
+                # Clean up resources
+                self._cleanup_resources()
+
+                # Reset initialization flag
+                self._is_initialized = False
+
+                # Clear active publishers and subscribers
+                self._active_publishers.clear()
+                self._active_subscribers.clear()
+
+                self._publish_status('CLEANED_UP')
+                self.get_logger().info('Advanced node cleaned up successfully')
+                return TransitionCallbackReturn.SUCCESS
+
+            except Exception as e:
+                self.get_logger().error(f'Cleanup failed: {e}')
+                return TransitionCallbackReturn.FAILURE
+
+    def _initialize_resources(self):
+        """Initialize complex resources during configuration."""
+        # Simulate resource initialization
+        time.sleep(0.1)  # Simulate initialization time
+        self.get_logger().info('Resources initialized')
+
+    def _perform_activation_steps(self):
+        """Perform activation-specific steps."""
+        # Simulate activation steps
+        self.get_logger().info('Activation steps completed')
+
+    def _perform_deactivation_steps(self):
+        """Perform deactivation-specific steps."""
+        # Simulate deactivation steps
+        self.get_logger().info('Deactivation steps completed')
+
+    def _cleanup_resources(self):
+        """Clean up resources during cleanup."""
+        # Clean up any remaining resources
+        self._sensor_data_buffer.clear()
+        self.get_logger().info('Resources cleaned up')
+
+    def _timer_callback(self):
+        """Timer callback for the advanced node."""
+        self.get_logger().info('Advanced node timer callback executed')
+        self._publish_status('TIMER_CALLBACK')
+
+    def _scan_callback(self, msg):
+        """Callback for laser scan messages."""
+        # Store sensor data in buffer
+        self._sensor_data_buffer.append(msg)
+        if len(self._sensor_data_buffer) > self._max_buffer_size:
+            self._sensor_data_buffer.pop(0)  # Remove oldest data
+
+        self.get_logger().info(f'Received scan with {len(msg.ranges)} ranges')
+
+    def _publish_status(self, status):
+        """Publish node status to the status topic."""
+        if hasattr(self, '_status_pub') and self._status_pub is not None:
+            status_msg = String()
+            status_msg.data = f'{self.get_name()}: {status}'
+            self._status_pub.publish(status_msg)
+
+    def destroy_node(self):
+        """Override destroy_node to ensure proper cleanup."""
+        with self._state_lock:
+            self.get_logger().info('Destroying advanced lifecycle node')
+
+            # Cancel timer if it exists
+            if hasattr(self, '_timer') and self._timer is not None:
+                self._timer.cancel()
+                self._timer.destroy()
+
+            super().destroy_node()
+
+
+def main(args=None):
+    rclpy.init(args=args)
+
+    advanced_node = AdvancedLifecycleNode()
+
+    try:
+        # Use multi-threaded executor to handle callbacks properly
+        executor = MultiThreadedExecutor()
+        executor.add_node(advanced_node)
+        executor.spin()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        advanced_node.destroy_node()
+        rclpy.shutdown()
+```
+
+## Lifecycle Manager
+
+### Using Lifecycle Manager
+
+ROS 2 provides a lifecycle manager to control multiple lifecycle nodes:
+
+```python
+import rclpy
+from rclpy.lifecycle import LifecycleNode
+from lifecycle_msgs.srv import ChangeState, GetState, GetAvailableStates, GetAvailableTransitions
+from lifecycle_msgs.msg import Transition, State
+from rclpy.qos import qos_profile_services_default
+import time
+
+
+class LifecycleManagerNode(LifecycleNode):
+    def __init__(self):
+        super().__init__('lifecycle_manager')
+
+        # List of managed nodes
+        self.managed_nodes = [
+            'sensor_node',
+            'controller_node',
+            'planner_node'
+        ]
+
+        # Create clients for lifecycle services
+        self.change_state_clients = {}
+        self.get_state_clients = {}
+        self.get_available_states_clients = {}
+        self.get_available_transitions_clients = {}
+
+        for node_name in self.managed_nodes:
+            # Create change state client
+            self.change_state_clients[node_name] = self.create_client(
+                ChangeState,
+                f'/{node_name}/change_state',
+                qos_profile=qos_profile_services_default
+            )
+
+            # Create get state client
+            self.get_state_clients[node_name] = self.create_client(
+                GetState,
+                f'/{node_name}/get_state',
+                qos_profile=qos_profile_services_default
+            )
+
+            # Create get available states client
+            self.get_available_states_clients[node_name] = self.create_client(
+                GetAvailableStates,
+                f'/{node_name}/get_available_states',
+                qos_profile=qos_profile_services_default
+            )
+
+            # Create get available transitions client
+            self.get_available_transitions_clients[node_name] = self.create_client(
+                GetAvailableTransitions,
+                f'/{node_name}/get_available_transitions',
+                qos_profile=qos_profile_services_default
+            )
+
+        # Wait for all services to be available
+        self._wait_for_services()
+
+        self.get_logger().info('Lifecycle manager initialized')
+
+    def _wait_for_services(self):
+        """Wait for all lifecycle services to be available."""
+        for node_name in self.managed_nodes:
+            # Wait for change state service
+            while not self.change_state_clients[node_name].wait_for_service(timeout_sec=1.0):
+                self.get_logger().info(
+                    f'Change state service for {node_name} not available, waiting...'
+                )
+
+            # Wait for get state service
+            while not self.get_state_clients[node_name].wait_for_service(timeout_sec=1.0):
+                self.get_logger().info(
+                    f'Get state service for {node_name} not available, waiting...'
+                )
+
+            # Wait for get available states service
+            while not self.get_available_states_clients[node_name].wait_for_service(timeout_sec=1.0):
+                self.get_logger().info(
+                    f'Get available states service for {node_name} not available, waiting...'
+                )
+
+            # Wait for get available transitions service
+            while not self.get_available_transitions_clients[node_name].wait_for_service(timeout_sec=1.0):
+                self.get_logger().info(
+                    f'Get available transitions service for {node_name} not available, waiting...'
+                )
+
+            self.get_logger().info(f'All services available for {node_name}')
+
+    def change_node_state(self, node_name, transition_id):
+        """
+        Change the state of a managed node.
+
+        Args:
+            node_name: Name of the node to change state
+            transition_id: ID of the transition to execute
+
+        Returns:
+            Future object for the service call
+        """
+        if node_name not in self.managed_nodes:
+            self.get_logger().error(f'Node {node_name} is not managed')
+            return None
+
+        request = ChangeState.Request()
+        request.transition.id = transition_id
+
+        future = self.change_state_clients[node_name].call_async(request)
+        return future
+
+    def get_node_state(self, node_name):
+        """
+        Get the current state of a managed node.
+
+        Args:
+            node_name: Name of the node to get state
+
+        Returns:
+            Future object for the service call
+        """
+        if node_name not in self.managed_nodes:
+            self.get_logger().error(f'Node {node_name} is not managed')
+            return None
+
+        request = GetState.Request()
+
+        future = self.get_state_clients[node_name].call_async(request)
+        return future
+
+    def configure_all_nodes(self):
+        """Configure all managed nodes."""
+        futures = {}
+        for node_name in self.managed_nodes:
+            future = self.change_node_state(node_name, Transition.TRANSITION_CONFIGURE)
+            if future:
+                futures[node_name] = future
+
+        # Wait for all configurations to complete
+        for node_name, future in futures.items():
+            rclpy.spin_until_future_complete(self, future, timeout_sec=5.0)
+            if future.done():
+                response = future.result()
+                if response.success:
+                    self.get_logger().info(f'{node_name} configured successfully')
+                else:
+                    self.get_logger().error(f'{node_name} configuration failed')
+            else:
+                self.get_logger().error(f'Timeout configuring {node_name}')
+
+    def activate_all_nodes(self):
+        """Activate all managed nodes."""
+        futures = {}
+        for node_name in self.managed_nodes:
+            future = self.change_node_state(node_name, Transition.TRANSITION_ACTIVATE)
+            if future:
+                futures[node_name] = future
+
+        # Wait for all activations to complete
+        for node_name, future in futures.items():
+            rclpy.spin_until_future_complete(self, future, timeout_sec=5.0)
+            if future.done():
+                response = future.result()
+                if response.success:
+                    self.get_logger().info(f'{node_name} activated successfully')
+                else:
+                    self.get_logger().error(f'{node_name} activation failed')
+            else:
+                self.get_logger().error(f'Timeout activating {node_name}')
+
+    def deactivate_all_nodes(self):
+        """Deactivate all managed nodes."""
+        futures = {}
+        for node_name in self.managed_nodes:
+            future = self.change_node_state(node_name, Transition.TRANSITION_DEACTIVATE)
+            if future:
+                futures[node_name] = future
+
+        # Wait for all deactivations to complete
+        for node_name, future in futures.items():
+            rclpy.spin_until_future_complete(self, future, timeout_sec=5.0)
+            if future.done():
+                response = future.result()
+                if response.success:
+                    self.get_logger().info(f'{node_name} deactivated successfully')
+                else:
+                    self.get_logger().error(f'{node_name} deactivation failed')
+            else:
+                self.get_logger().error(f'Timeout deactivating {node_name}')
+
+    def cleanup_all_nodes(self):
+        """Clean up all managed nodes."""
+        futures = {}
+        for node_name in self.managed_nodes:
+            future = self.change_node_state(node_name, Transition.TRANSITION_CLEANUP)
+            if future:
+                futures[node_name] = future
+
+        # Wait for all cleanups to complete
+        for node_name, future in futures.items():
+            rclpy.spin_until_future_complete(self, future, timeout_sec=5.0)
+            if future.done():
+                response = future.result()
+                if response.success:
+                    self.get_logger().info(f'{node_name} cleaned up successfully')
+                else:
+                    self.get_logger().error(f'{node_name} cleanup failed')
+            else:
+                self.get_logger().error(f'Timeout cleaning up {node_name}')
+
+
+def main(args=None):
+    rclpy.init(args=args)
+
+    manager = LifecycleManagerNode()
+
+    try:
+        # Example: Configure, activate, and then deactivate all nodes
+        manager.configure_all_nodes()
+        time.sleep(1.0)  # Wait for configuration
+        manager.activate_all_nodes()
+        time.sleep(5.0)  # Let nodes run for a while
+        manager.deactivate_all_nodes()
+        time.sleep(1.0)  # Wait for deactivation
+        manager.cleanup_all_nodes()
+
+        rclpy.spin(manager)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        manager.destroy_node()
+        rclpy.shutdown()
+```
+
+## Best Practices for Lifecycle Nodes
+
+### Proper Resource Management
+
+```python
+class BestPracticeLifecycleNode(LifecycleNode):
+    def __init__(self):
+        super().__init__('best_practice_node')
+        self._resources = {}
+        self._is_active = False
+        self._resource_lock = threading.Lock()
+
+    def on_configure(self, state):
+        """Proper resource configuration with error handling."""
+        with self._resource_lock:
+            try:
+                # Initialize resources
+                self._resources['publisher'] = self.create_publisher(String, 'topic', 10)
+                self._resources['timer'] = self.create_timer(1.0, self.timer_callback)
+                self._resources['timer'].cancel()  # Don't start yet
+
+                # Initialize other resources
+                self._initialize_subsystems()
+
+                self.get_logger().info('Node configured successfully')
+                return TransitionCallbackReturn.SUCCESS
+            except Exception as e:
+                self.get_logger().error(f'Configuration failed: {e}')
+                self._cleanup_resources()
+                return TransitionCallbackReturn.FAILURE
+
+    def on_activate(self, state):
+        """Proper activation with validation."""
+        with self._resource_lock:
+            try:
+                # Validate resources exist
+                if 'publisher' not in self._resources or 'timer' not in self._resources:
+                    self.get_logger().error('Required resources not available')
+                    return TransitionCallbackReturn.FAILURE
+
+                # Activate resources
+                self._resources['publisher'].on_activate()
+                self._resources['timer'].reset()
+
+                self._is_active = True
+                self.get_logger().info('Node activated successfully')
+                return TransitionCallbackReturn.SUCCESS
+            except Exception as e:
+                self.get_logger().error(f'Activation failed: {e}')
+                return TransitionCallbackReturn.FAILURE
+
+    def on_deactivate(self, state):
+        """Proper deactivation."""
+        with self._resource_lock:
+            try:
+                if 'publisher' in self._resources:
+                    self._resources['publisher'].on_deactivate()
+
+                if 'timer' in self._resources:
+                    self._resources['timer'].cancel()
+
+                self._is_active = False
+                self.get_logger().info('Node deactivated successfully')
+                return TransitionCallbackReturn.SUCCESS
+            except Exception as e:
+                self.get_logger().error(f'Deactivation failed: {e}')
+                return TransitionCallbackReturn.FAILURE
+
+    def on_cleanup(self, state):
+        """Proper cleanup."""
+        with self._resource_lock:
+            try:
+                self._cleanup_resources()
+                self.get_logger().info('Node cleaned up successfully')
+                return TransitionCallbackReturn.SUCCESS
+            except Exception as e:
+                self.get_logger().error(f'Cleanup failed: {e}')
+                return TransitionCallbackReturn.FAILURE
+
+    def _initialize_subsystems(self):
+        """Initialize subsystems safely."""
+        # Initialize subsystems here
+        pass
+
+    def _cleanup_resources(self):
+        """Clean up all resources."""
+        for key, resource in self._resources.items():
+            try:
+                if hasattr(resource, 'destroy') and callable(resource.destroy):
+                    resource.destroy()
+            except Exception as e:
+                self.get_logger().error(f'Error destroying {key}: {e}')
+
+        self._resources.clear()
+
+    def timer_callback(self):
+        """Timer callback that checks active state."""
+        if not self._is_active:
+            return  # Don't execute if not active
+
+        # Timer logic here
+        pass
+
+    def destroy_node(self):
+        """Override destroy_node to ensure proper cleanup."""
+        with self._resource_lock:
+            self.get_logger().info('Destroying lifecycle node')
+
+            # Clean up any remaining resources
+            self._cleanup_resources()
+
+            super().destroy_node()
+```
+
+### Error Handling and Recovery
+
+```python
+class ErrorHandlingLifecycleNode(LifecycleNode):
+    def __init__(self):
+        super().__init__('error_handling_node')
+        self._error_count = 0
+        self._max_errors = 3
+        self._recovery_attempts = 0
+        self._max_recovery_attempts = 2
+
+    def on_error(self, state):
+        """
+        Handle errors that occur during state transitions.
+
+        Args:
+            state: The current state
+
+        Returns:
+            TransitionCallbackReturn indicating how to handle the error
+        """
+        self.get_logger().error(f'Error occurred in state: {state.label}')
+        self._error_count += 1
+
+        if self._error_count >= self._max_errors:
+            self.get_logger().error('Maximum error count reached')
+
+            # Try to recover by going to unconfigured state
+            if self._recovery_attempts < self._max_recovery_attempts:
+                self.get_logger().info('Attempting recovery')
+                self._recovery_attempts += 1
+                self._error_count = 0
+                return TransitionCallbackReturn.SUCCESS
+            else:
+                self.get_logger().error('Recovery attempts exhausted, shutting down')
+                return TransitionCallbackReturn.ERROR
+        else:
+            self.get_logger().info(f'Error count: {self._error_count}, continuing')
+            return TransitionCallbackReturn.SUCCESS
+
+    def on_configure(self, state):
+        """Configure with error checking."""
+        try:
+            # Attempt configuration
+            self._configure_resources()
+            self._error_count = 0  # Reset error count on success
+            self._recovery_attempts = 0  # Reset recovery attempts on success
+            self.get_logger().info('Configuration successful')
+            return TransitionCallbackReturn.SUCCESS
+        except Exception as e:
+            self.get_logger().error(f'Configuration error: {e}')
+            return TransitionCallbackReturn.FAILURE
+
+    def _configure_resources(self):
+        """Configure resources with error handling."""
+        # Simulate potential error
+        import random
+        if random.random() < 0.1:  # 10% chance of error for demonstration
+            raise Exception("Simulated configuration error")
+```
+
+## Real-World Example: Sensor Lifecycle Node
+
+```python
+import rclpy
+from rclpy.lifecycle import LifecycleNode, TransitionCallbackReturn
+from sensor_msgs.msg import JointState, Imu
+from std_msgs.msg import String
+import threading
+import time
+
+
+class SensorLifecycleNode(LifecycleNode):
+    def __init__(self):
+        super().__init__('sensor_lifecycle_node')
+
+        # Initialize state tracking
+        self._sensor_interface = None
+        self._is_sensor_active = False
+        self._sensor_data_lock = threading.Lock()
+        self._latest_joint_states = None
+        self._latest_imu_data = None
+
+        self.get_logger().info('Sensor lifecycle node initialized')
+
+    def on_configure(self, state):
+        """Configure sensor interface."""
+        try:
+            # Initialize sensor interface (simulated)
+            self._sensor_interface = self._initialize_sensor_interface()
+
+            # Create publishers for sensor data
+            self._joint_state_pub = self.create_publisher(JointState, 'joint_states', 10)
+            self._imu_pub = self.create_publisher(Imu, 'imu/data', 10)
+            self._status_pub = self.create_publisher(String, 'sensor_status', 10)
+
+            # Create timer for publishing (but don't start yet)
+            self._sensor_timer = self.create_timer(0.05, self._publish_sensor_data)  # 20 Hz
+            self._sensor_timer.cancel()  # Don't start timer yet
+
+            self._publish_status('CONFIGURED')
+            self.get_logger().info('Sensor node configured successfully')
+            return TransitionCallbackReturn.SUCCESS
+
+        except Exception as e:
+            self.get_logger().error(f'Sensor configuration failed: {e}')
+            return TransitionCallbackReturn.FAILURE
+
+    def on_activate(self, state):
+        """Start sensor data acquisition."""
+        try:
+            if self._sensor_interface:
+                self._sensor_interface.start()
+                self._is_sensor_active = True
+
+            # Start timer to publish sensor data
+            if hasattr(self, '_sensor_timer') and self._sensor_timer is not None:
+                self._sensor_timer.reset()
+
+            self._publish_status('ACTIVE')
+            self.get_logger().info('Sensor node activated successfully')
+            return TransitionCallbackReturn.SUCCESS
+
+        except Exception as e:
+            self.get_logger().error(f'Sensor activation failed: {e}')
+            return TransitionCallbackReturn.FAILURE
+
+    def on_deactivate(self, state):
+        """Stop sensor data acquisition."""
+        try:
+            if hasattr(self, '_sensor_timer') and self._sensor_timer is not None:
+                self._sensor_timer.cancel()
+
+            if self._sensor_interface:
+                self._sensor_interface.stop()
+                self._is_sensor_active = False
+
+            self._publish_status('INACTIVE')
+            self.get_logger().info('Sensor node deactivated successfully')
+            return TransitionCallbackReturn.SUCCESS
+
+        except Exception as e:
+            self.get_logger().error(f'Sensor deactivation failed: {e}')
+            return TransitionCallbackReturn.FAILURE
+
+    def on_cleanup(self, state):
+        """Clean up sensor resources."""
+        try:
+            # Ensure sensor is stopped
+            if self._sensor_interface:
+                self._sensor_interface.stop()
+                self._sensor_interface = None
+
+            # Clean up timer
+            if hasattr(self, '_sensor_timer') and self._sensor_timer is not None:
+                self._sensor_timer.destroy()
+
+            self._publish_status('CLEANED_UP')
+            self.get_logger().info('Sensor node cleaned up successfully')
+            return TransitionCallbackReturn.SUCCESS
+
+        except Exception as e:
+            self.get_logger().error(f'Sensor cleanup failed: {e}')
+            return TransitionCallbackReturn.FAILURE
+
+    def _initialize_sensor_interface(self):
+        """Initialize the sensor interface (simulated)."""
+        class MockSensorInterface:
+            def __init__(self):
+                self._is_running = False
+                self._thread = None
+
+            def start(self):
+                self._is_running = True
+                self.get_logger().info('Sensor interface started')
+
+            def stop(self):
+                self._is_running = False
+                self.get_logger().info('Sensor interface stopped')
+
+            def read_joint_states(self):
+                # Simulate joint state reading
+                joint_state = JointState()
+                joint_state.name = ['joint1', 'joint2', 'joint3']
+                joint_state.position = [0.1, 0.2, 0.3]
+                joint_state.velocity = [0.0, 0.0, 0.0]
+                joint_state.effort = [0.0, 0.0, 0.0]
+                return joint_state
+
+            def read_imu_data(self):
+                # Simulate IMU data reading
+                imu_data = Imu()
+                imu_data.orientation.x = 0.0
+                imu_data.orientation.y = 0.0
+                imu_data.orientation.z = 0.0
+                imu_data.orientation.w = 1.0
+                return imu_data
+
+        return MockSensorInterface()
+
+    def _publish_sensor_data(self):
+        """Publish sensor data."""
+        if self._sensor_interface and self._is_sensor_active:
+            with self._sensor_data_lock:
+                # Read joint states
+                joint_states = self._sensor_interface.read_joint_states()
+                joint_states.header.stamp = self.get_clock().now().to_msg()
+                joint_states.header.frame_id = 'base_link'
+                self._joint_state_pub.publish(joint_states)
+
+                # Read IMU data
+                imu_data = self._sensor_interface.read_imu_data()
+                imu_data.header.stamp = self.get_clock().now().to_msg()
+                imu_data.header.frame_id = 'imu_link'
+                self._imu_pub.publish(imu_data)
+
+    def _publish_status(self, status):
+        """Publish sensor status."""
+        status_msg = String()
+        status_msg.data = f'Sensor: {status}'
+        self._status_pub.publish(status_msg)
+
+
+def main(args=None):
+    rclpy.init(args=args)
+
+    sensor_node = SensorLifecycleNode()
+
+    try:
+        rclpy.spin(sensor_node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        sensor_node.destroy_node()
+        rclpy.shutdown()
+```
+
+## Integration with Other ROS 2 Components
+
+### Using Lifecycle Nodes with Actions
+
+```python
+import rclpy
+from rclpy.lifecycle import LifecycleNode, TransitionCallbackReturn
+from rclpy.action import ActionServer
+from example_interfaces.action import Fibonacci
+
+
+class LifecycleActionNode(LifecycleNode):
+    def __init__(self):
+        super().__init__('lifecycle_action_node')
+
+        # Action server will be created in configure state
+        self._action_server = None
+
+        self.get_logger().info('Lifecycle action node initialized')
+
+    def on_configure(self, state):
+        """Configure and create action server."""
+        try:
+            # Create action server only when node is configured
+            self._action_server = ActionServer(
+                self,
+                Fibonacci,
+                'fibonacci',
+                execute_callback=self.execute_callback,
+                goal_callback=self.goal_callback,
+                cancel_callback=self.cancel_callback
+            )
+
+            self.get_logger().info('Action server created successfully')
+            return TransitionCallbackReturn.SUCCESS
+
+        except Exception as e:
+            self.get_logger().error(f'Failed to create action server: {e}')
+            return TransitionCallbackReturn.FAILURE
+
+    def on_cleanup(self, state):
+        """Clean up action server."""
+        try:
+            if self._action_server:
+                self._action_server.destroy()
+                self._action_server = None
+
+            self.get_logger().info('Action server cleaned up successfully')
+            return TransitionCallbackReturn.SUCCESS
+
+        except Exception as e:
+            self.get_logger().error(f'Failed to clean up action server: {e}')
+            return TransitionCallbackReturn.FAILURE
+
+    def goal_callback(self, goal_request):
+        """Handle goal requests."""
+        # Only accept goals if node is active
+        if self.get_current_state().label == 'active':
+            return rclpy.action.server.GoalResponse.ACCEPT
+        else:
+            return rclpy.action.server.GoalResponse.REJECT
+
+    def cancel_callback(self, goal_handle):
+        """Handle cancel requests."""
+        return rclpy.action.server.CancelResponse.ACCEPT
+
+    def execute_callback(self, goal_handle):
+        """Execute action callback."""
+        # Implementation of action execution
+        feedback_msg = Fibonacci.Feedback()
+        result_msg = Fibonacci.Result()
+
+        # Simulate action execution
+        feedback_msg.sequence = [0, 1]
+
+        if goal_handle.request.order <= 1:
+            if goal_handle.request.order == 0:
+                result_msg.sequence = [0]
+            else:
+                result_msg.sequence = [0, 1]
+        else:
+            for i in range(1, goal_handle.request.order):
+                if goal_handle.is_cancel_requested:
+                    goal_handle.canceled()
+                    result_msg.sequence = feedback_msg.sequence
+                    return result_msg
+
+                feedback_msg.sequence.append(
+                    feedback_msg.sequence[i] + feedback_msg.sequence[i-1]
+                )
+                goal_handle.publish_feedback(feedback_msg)
+
+        goal_handle.succeed()
+        result_msg.sequence = feedback_msg.sequence
+        return result_msg
+
+
+def main(args=None):
+    rclpy.init(args=args)
+
+    lifecycle_action_node = LifecycleActionNode()
+
+    try:
+        rclpy.spin(lifecycle_action_node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        lifecycle_action_node.destroy_node()
+        rclpy.shutdown()
+```
+
+## Summary
+
+Lifecycle nodes provide a structured approach to managing node states in ROS 2, enabling more sophisticated control over initialization, activation, deactivation, and cleanup processes. They are particularly valuable in complex robotic systems where components need to be coordinated in a specific order or where resources need to be managed efficiently. By following the state machine pattern, lifecycle nodes enhance the reliability and maintainability of robotic applications. Proper implementation requires careful attention to resource management, error handling, and state consistency to ensure robust operation in real-world scenarios.
+
+## References
+
+ROS.org. (2023). *ROS 2 Lifecycle Nodes Documentation*. Retrieved from https://docs.ros.org/en/humble/

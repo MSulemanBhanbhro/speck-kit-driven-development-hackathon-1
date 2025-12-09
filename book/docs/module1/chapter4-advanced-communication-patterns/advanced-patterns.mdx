@@ -1,0 +1,770 @@
+---
+title: Advanced Communication Patterns
+description: Understanding advanced robot communication patterns including action-based workflows, parameters, and lifecycle management
+sidebar_position: 1
+---
+
+# Advanced Communication Patterns
+
+## Introduction to Advanced Communication
+
+In the previous chapters, we explored fundamental ROS 2 communication patterns including topics, services, and basic node implementation. This chapter delves into more advanced communication patterns that are essential for complex robotic applications. These patterns include actions for long-running operations with feedback, parameter management for runtime configuration, and lifecycle management for complex system coordination.
+
+According to the ROS 2 design documentation, advanced communication patterns provide the foundation for building robust, maintainable robotic systems that can handle complex, multi-step operations with proper error handling and feedback mechanisms (ROS.org, 2023). These patterns are particularly important for humanoid robots that need to perform coordinated, multi-step tasks.
+
+## Actions: Long-Running Operations with Feedback
+
+### Understanding Actions
+
+Actions in ROS 2 provide a communication pattern for long-running operations that require feedback and goal management. Unlike services, which provide a simple request-response pattern, actions are designed for operations that:
+
+1. Take a significant amount of time to complete
+2. Provide periodic feedback during execution
+3. Support goal preemption (cancellation)
+4. Return detailed results upon completion
+
+Actions are particularly useful for tasks like navigation, manipulation, and calibration where users need to know the progress and have the ability to cancel operations.
+
+### Action Architecture
+
+An action consists of three message types:
+
+1. **Goal**: Defines the requested operation
+2. **Feedback**: Provides periodic updates during execution
+3. **Result**: Contains the final outcome of the operation
+
+The action client-server interaction follows this pattern:
+1. Client sends a goal to the server
+2. Server accepts or rejects the goal
+3. Server provides feedback during execution
+4. Client can cancel the goal at any time
+5. Server sends the final result when complete
+
+### Action Client Implementation
+
+```python
+import rclpy
+from rclpy.action import ActionClient
+from rclpy.node import Node
+from example_interfaces.action import Fibonacci
+
+
+class FibonacciActionClient(Node):
+    def __init__(self):
+        super().__init__('fibonacci_action_client')
+
+        # Create action client for the Fibonacci action
+        self._action_client = ActionClient(
+            self,
+            Fibonacci,
+            'fibonacci'
+        )
+
+    def send_goal(self, order):
+        """
+        Send a goal to the Fibonacci action server.
+
+        Args:
+            order: The order of the Fibonacci sequence to compute
+
+        Returns:
+            Future object representing the asynchronous goal request
+        """
+        # Wait for the action server to be available
+        self._action_client.wait_for_server()
+
+        # Create the goal message
+        goal_msg = Fibonacci.Goal()
+        goal_msg.order = order
+
+        # Send the goal and return the future
+        self._send_goal_future = self._action_client.send_goal_async(
+            goal_msg,
+            feedback_callback=self.feedback_callback
+        )
+
+        # Add a callback for when the goal response is received
+        self._send_goal_future.add_done_callback(self.goal_response_callback)
+
+        return self._send_goal_future
+
+    def goal_response_callback(self, future):
+        """
+        Callback function for when the goal response is received.
+        """
+        goal_handle = future.result()
+        if not goal_handle.accepted:
+            self.get_logger().info('Goal rejected')
+            return
+
+        self.get_logger().info('Goal accepted')
+
+        # Request the result future
+        self._get_result_future = goal_handle.get_result_async()
+        self._get_result_future.add_done_callback(self.get_result_callback)
+
+    def feedback_callback(self, feedback_msg):
+        """
+        Callback function for receiving feedback during action execution.
+        """
+        self.get_logger().info(
+            f'Received feedback: {feedback_msg.feedback.sequence}'
+        )
+
+    def get_result_callback(self, future):
+        """
+        Callback function for when the final result is received.
+        """
+        result = future.result().result
+        self.get_logger().info(f'Result: {result.sequence}')
+
+
+def main(args=None):
+    rclpy.init(args=args)
+
+    action_client = FibonacciActionClient()
+
+    # Send a goal to compute the 10th Fibonacci number
+    action_client.send_goal(10)
+
+    try:
+        rclpy.spin(action_client)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        action_client.destroy_node()
+        rclpy.shutdown()
+```
+
+### Action Server Implementation
+
+```python
+import rclpy
+from rclpy.action import ActionServer, CancelResponse, GoalResponse
+from rclpy.node import Node
+from example_interfaces.action import Fibonacci
+
+
+class FibonacciActionServer(Node):
+    def __init__(self):
+        super().__init__('fibonacci_action_server')
+
+        # Create action server for the Fibonacci action
+        self._action_server = ActionServer(
+            self,
+            Fibonacci,
+            'fibonacci',
+            execute_callback=self.execute_callback,
+            goal_callback=self.goal_callback,
+            cancel_callback=self.cancel_callback
+        )
+
+    def goal_callback(self, goal_request):
+        """
+        Callback function for handling goal requests.
+
+        Args:
+            goal_request: The incoming goal request
+
+        Returns:
+            GoalResponse.ACCEPT or GoalResponse.REJECT
+        """
+        self.get_logger().info('Received goal request')
+
+        # Accept all goals (in a real implementation, you might reject based on constraints)
+        return GoalResponse.ACCEPT
+
+    def cancel_callback(self, goal_handle):
+        """
+        Callback function for handling goal cancellation requests.
+
+        Args:
+            goal_handle: The goal handle for the goal being cancelled
+
+        Returns:
+            CancelResponse.ACCEPT or CancelResponse.REJECT
+        """
+        self.get_logger().info('Received cancel request')
+        return CancelResponse.ACCEPT
+
+    def execute_callback(self, goal_handle):
+        """
+        Callback function for executing the action goal.
+
+        Args:
+            goal_handle: The goal handle for the executing goal
+
+        Returns:
+            The result message
+        """
+        self.get_logger().info('Executing goal...')
+
+        # Create feedback and result messages
+        feedback_msg = Fibonacci.Feedback()
+        result_msg = Fibonacci.Result()
+
+        # Generate the Fibonacci sequence
+        feedback_msg.sequence = [0, 1]
+
+        # Check if the goal order is small enough to compute
+        if goal_handle.request.order <= 1:
+            if goal_handle.request.order == 0:
+                result_msg.sequence = [0]
+            else:
+                result_msg.sequence = [0, 1]
+            return result_msg
+
+        # Compute the Fibonacci sequence up to the requested order
+        for i in range(1, goal_handle.request.order):
+            # Check if the goal has been cancelled
+            if goal_handle.is_cancel_requested:
+                self.get_logger().info('Goal cancelled')
+                result_msg.sequence = feedback_msg.sequence
+                goal_handle.canceled()
+                return result_msg
+
+            # Update the sequence
+            feedback_msg.sequence.append(
+                feedback_msg.sequence[i] + feedback_msg.sequence[i-1]
+            )
+
+            # Publish feedback
+            goal_handle.publish_feedback(feedback_msg)
+
+            # Sleep to simulate processing time (in a real implementation,
+            # this would be actual computation or physical action)
+            from time import sleep
+            sleep(0.1)
+
+        # Complete the goal
+        goal_handle.succeed()
+        result_msg.sequence = feedback_msg.sequence
+
+        self.get_logger().info('Goal completed')
+        return result_msg
+
+
+def main(args=None):
+    rclpy.init(args=args)
+
+    action_server = FibonacciActionServer()
+
+    try:
+        rclpy.spin(action_server)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        action_server.destroy_node()
+        rclpy.shutdown()
+```
+
+## Parameter Management
+
+### Understanding Parameters
+
+Parameters in ROS 2 provide a way to configure nodes at runtime. They allow users to adjust node behavior without recompiling code, making systems more flexible and adaptable. Parameters can be:
+
+- Declared at startup with default values
+- Modified during runtime via services
+- Loaded from configuration files
+- Passed as arguments during launch
+
+### Parameter Declaration and Usage
+
+```python
+import rclpy
+from rclpy.node import Node
+from rclpy.parameter import Parameter
+from rcl_interfaces.msg import ParameterDescriptor, IntegerRange
+
+
+class ParameterNode(Node):
+    def __init__(self):
+        super().__init__('parameter_node')
+
+        # Declare parameters with descriptions and constraints
+        # String parameter
+        self.declare_parameter(
+            'robot_name',
+            'default_robot',
+            ParameterDescriptor(
+                description='Name of the robot',
+                read_only=False
+            )
+        )
+
+        # Integer parameter with range constraints
+        self.declare_parameter(
+            'control_frequency',
+            50,
+            ParameterDescriptor(
+                description='Control loop frequency in Hz',
+                integer_range=[IntegerRange(from_value=1, to_value=1000, step=1)],
+                read_only=False
+            )
+        )
+
+        # Boolean parameter
+        self.declare_parameter(
+            'enable_logging',
+            True,
+            ParameterDescriptor(
+                description='Enable detailed logging',
+                read_only=False
+            )
+        )
+
+        # Get parameter values
+        self.robot_name = self.get_parameter('robot_name').value
+        self.control_frequency = self.get_parameter('control_frequency').value
+        self.enable_logging = self.get_parameter('enable_logging').value
+
+        # Set up parameter callback to handle dynamic reconfiguration
+        self.set_parameters_callback(self.parameters_callback)
+
+        self.get_logger().info(f'Initialized with robot name: {self.robot_name}')
+
+    def parameters_callback(self, parameters):
+        """
+        Callback function for handling parameter changes.
+
+        Args:
+            parameters: List of Parameter objects that have changed
+
+        Returns:
+            SetParametersResult indicating success or failure
+        """
+        from rcl_interfaces.msg import SetParametersResult
+
+        for param in parameters:
+            if param.name == 'robot_name':
+                self.robot_name = param.value
+                self.get_logger().info(f'Robot name updated to: {self.robot_name}')
+            elif param.name == 'control_frequency':
+                self.control_frequency = param.value
+                self.get_logger().info(f'Control frequency updated to: {self.control_frequency} Hz')
+            elif param.name == 'enable_logging':
+                self.enable_logging = param.value
+                status = 'enabled' if self.enable_logging else 'disabled'
+                self.get_logger().info(f'Logging {status}')
+
+        # Return successful result
+        return SetParametersResult(successful=True)
+
+
+def main(args=None):
+    rclpy.init(args=args)
+
+    param_node = ParameterNode()
+
+    try:
+        rclpy.spin(param_node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        param_node.destroy_node()
+        rclpy.shutdown()
+```
+
+### Parameter Configuration Files
+
+Parameters can be loaded from YAML configuration files:
+
+```yaml
+# config/robot_params.yaml
+parameter_node:
+  ros__parameters:
+    robot_name: 'advanced_robot'
+    control_frequency: 100
+    enable_logging: false
+    sensor_threshold: 0.5
+    max_velocity: 1.0
+```
+
+Loading parameters from a configuration file in a launch file:
+
+```python
+from launch import LaunchDescription
+from launch_ros.actions import Node
+from ament_index_python.packages import get_package_share_directory
+import os
+
+
+def generate_launch_description():
+    # Get the path to the configuration file
+    config_file = os.path.join(
+        get_package_share_directory('my_robot_package'),
+        'config',
+        'robot_params.yaml'
+    )
+
+    # Create a node with parameters loaded from the config file
+    param_node = Node(
+        package='my_robot_package',
+        executable='parameter_node',
+        name='parameter_node',
+        parameters=[config_file]
+    )
+
+    return LaunchDescription([param_node])
+```
+
+## Lifecycle Management
+
+### Understanding Lifecycle Nodes
+
+Lifecycle nodes provide a structured approach to managing node states throughout their operational lifetime. Unlike regular nodes that start and run continuously, lifecycle nodes follow a well-defined state machine that allows for more sophisticated control over initialization, activation, deactivation, and cleanup processes.
+
+The lifecycle state machine includes:
+- **Unconfigured**: Node created but not configured
+- **Inactive**: Node configured but not active
+- **Active**: Node running and processing data
+- **Error**: Node in an error state
+
+### Lifecycle Node Implementation
+
+```python
+import rclpy
+from rclpy.lifecycle import LifecycleNode, LifecycleState, TransitionCallbackReturn
+from rclpy.lifecycle import Node as rclpy_Node
+from std_msgs.msg import String
+
+
+class LifecycleControlNode(LifecycleNode):
+    def __init__(self):
+        super().__init__('lifecycle_control_node')
+        self.get_logger().info('Lifecycle node initialized in unconfigured state')
+
+    def on_configure(self, state):
+        """
+        Callback for the configure transition.
+
+        Args:
+            state: The current state before transition
+
+        Returns:
+            TransitionCallbackReturn.SUCCESS or TransitionCallbackReturn.FAILURE
+        """
+        self.get_logger().info(f'Configuring node: {self.get_name()}')
+
+        # Initialize resources that don't require active communication
+        try:
+            # Create publishers and subscribers but don't activate them yet
+            self.pub = self.create_publisher(String, 'lifecycle_topic', 10)
+            self.timer = self.create_timer(1.0, self.timer_callback)
+
+            # Deactivate timer initially
+            self.timer.cancel()
+
+            self.get_logger().info('Node configured successfully')
+            return TransitionCallbackReturn.SUCCESS
+
+        except Exception as e:
+            self.get_logger().error(f'Failed to configure node: {e}')
+            return TransitionCallbackReturn.FAILURE
+
+    def on_cleanup(self, state):
+        """
+        Callback for the cleanup transition.
+
+        Args:
+            state: The current state before transition
+
+        Returns:
+            TransitionCallbackReturn.SUCCESS or TransitionCallbackReturn.FAILURE
+        """
+        self.get_logger().info(f'Cleaning up node: {self.get_name()}')
+
+        try:
+            # Clean up resources created during configuration
+            if hasattr(self, 'timer') and self.timer is not None:
+                self.timer.destroy()
+
+            self.get_logger().info('Node cleaned up successfully')
+            return TransitionCallbackReturn.SUCCESS
+
+        except Exception as e:
+            self.get_logger().error(f'Failed to clean up node: {e}')
+            return TransitionCallbackReturn.FAILURE
+
+    def on_activate(self, state):
+        """
+        Callback for the activate transition.
+
+        Args:
+            state: The current state before transition
+
+        Returns:
+            TransitionCallbackReturn.SUCCESS or TransitionCallbackReturn.FAILURE
+        """
+        self.get_logger().info(f'Activating node: {self.get_name()}')
+
+        try:
+            # Activate publishers and subscribers
+            self.pub.on_activate()
+
+            # Start timer
+            if hasattr(self, 'timer') and self.timer is not None:
+                self.timer.reset()
+
+            self.get_logger().info('Node activated successfully')
+            return TransitionCallbackReturn.SUCCESS
+
+        except Exception as e:
+            self.get_logger().error(f'Failed to activate node: {e}')
+            return TransitionCallbackReturn.FAILURE
+
+    def on_deactivate(self, state):
+        """
+        Callback for the deactivate transition.
+
+        Args:
+            state: The current state before transition
+
+        Returns:
+            TransitionCallbackReturn.SUCCESS or TransitionCallbackReturn.FAILURE
+        """
+        self.get_logger().info(f'Deactivating node: {self.get_name()}')
+
+        try:
+            # Deactivate publishers and subscribers
+            if hasattr(self, 'pub'):
+                self.pub.on_deactivate()
+
+            # Stop timer
+            if hasattr(self, 'timer') and self.timer is not None:
+                self.timer.cancel()
+
+            self.get_logger().info('Node deactivated successfully')
+            return TransitionCallbackReturn.SUCCESS
+
+        except Exception as e:
+            self.get_logger().error(f'Failed to deactivate node: {e}')
+            return TransitionCallbackReturn.FAILURE
+
+    def on_shutdown(self, state):
+        """
+        Callback for the shutdown transition.
+
+        Args:
+            state: The current state before transition
+
+        Returns:
+            TransitionCallbackReturn.SUCCESS or TransitionCallbackReturn.FAILURE
+        """
+        self.get_logger().info(f'Shutting down node: {self.get_name()}')
+
+        try:
+            # Perform final cleanup
+            if hasattr(self, 'timer') and self.timer is not None:
+                self.timer.destroy()
+
+            self.get_logger().info('Node shutdown successfully')
+            return TransitionCallbackReturn.SUCCESS
+
+        except Exception as e:
+            self.get_logger().error(f'Failed during shutdown: {e}')
+            return TransitionCallbackReturn.FAILURE
+
+    def timer_callback(self):
+        """Timer callback that only executes when node is active."""
+        msg = String()
+        msg.data = f'Hello from lifecycle node: {self.get_clock().now().nanoseconds}'
+        self.pub.publish(msg)
+        self.get_logger().info(f'Published: {msg.data}')
+
+
+def main(args=None):
+    rclpy.init(args=args)
+
+    lifecycle_node = LifecycleControlNode()
+
+    try:
+        rclpy.spin(lifecycle_node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        lifecycle_node.destroy_node()
+        rclpy.shutdown()
+```
+
+## Integration of Advanced Patterns
+
+### Combining Actions, Parameters, and Lifecycle
+
+Complex robotic systems often require the integration of multiple advanced communication patterns. Here's an example that combines actions, parameters, and lifecycle management:
+
+```python
+import rclpy
+from rclpy.action import ActionServer
+from rclpy.lifecycle import LifecycleNode, TransitionCallbackReturn
+from rclpy.parameter import Parameter
+from example_interfaces.action import NavigateToPose
+from geometry_msgs.msg import Pose
+
+
+class IntegratedControlNode(LifecycleNode):
+    def __init__(self):
+        super().__init__('integrated_control_node')
+
+        # Declare parameters
+        self.declare_parameter('max_navigation_speed', 1.0)
+        self.declare_parameter('navigation_timeout', 30.0)
+        self.declare_parameter('enable_feedback', True)
+
+        # Initialize variables
+        self.current_pose = Pose()
+        self.max_speed = self.get_parameter('max_navigation_speed').value
+        self.timeout = self.get_parameter('navigation_timeout').value
+        self.enable_feedback = self.get_parameter('enable_feedback').value
+
+        # Set up parameter callback
+        self.set_parameters_callback(self.parameters_callback)
+
+        # Action server will be created in configure state
+        self._action_server = None
+
+        self.get_logger().info('Integrated control node initialized')
+
+    def on_configure(self, state):
+        """Configure the node and create action server."""
+        self.get_logger().info('Configuring integrated control node')
+
+        try:
+            # Create action server
+            self._action_server = ActionServer(
+                self,
+                NavigateToPose,
+                'navigate_to_pose',
+                execute_callback=self.execute_navigate_callback,
+                goal_callback=self.goal_callback,
+                cancel_callback=self.cancel_callback
+            )
+
+            self.get_logger().info('Action server created successfully')
+            return TransitionCallbackReturn.SUCCESS
+
+        except Exception as e:
+            self.get_logger().error(f'Failed to configure: {e}')
+            return TransitionCallbackReturn.FAILURE
+
+    def on_activate(self, state):
+        """Activate the node."""
+        self.get_logger().info('Activating integrated control node')
+        return TransitionCallbackReturn.SUCCESS
+
+    def on_deactivate(self, state):
+        """Deactivate the node."""
+        self.get_logger().info('Deactivating integrated control node')
+        return TransitionCallbackReturn.SUCCESS
+
+    def parameters_callback(self, parameters):
+        """Handle parameter changes."""
+        from rcl_interfaces.msg import SetParametersResult
+
+        for param in parameters:
+            if param.name == 'max_navigation_speed':
+                self.max_speed = param.value
+                self.get_logger().info(f'Max speed updated to: {self.max_speed}')
+            elif param.name == 'navigation_timeout':
+                self.timeout = param.value
+                self.get_logger().info(f'Timeout updated to: {self.timeout}')
+            elif param.name == 'enable_feedback':
+                self.enable_feedback = param.value
+                status = 'enabled' if self.enable_feedback else 'disabled'
+                self.get_logger().info(f'Feedback {status}')
+
+        return SetParametersResult(successful=True)
+
+    def goal_callback(self, goal_request):
+        """Handle goal requests."""
+        self.get_logger().info('Received navigation goal')
+        return rclpy.action.server.GoalResponse.ACCEPT
+
+    def cancel_callback(self, goal_handle):
+        """Handle cancel requests."""
+        self.get_logger().info('Received navigation cancel request')
+        return rclpy.action.server.CancelResponse.ACCEPT
+
+    def execute_navigate_callback(self, goal_handle):
+        """Execute navigation goal."""
+        self.get_logger().info('Executing navigation goal')
+
+        # In a real implementation, this would perform actual navigation
+        # For this example, we'll simulate navigation with feedback
+        feedback_msg = NavigateToPose.Feedback()
+        result_msg = NavigateToPose.Result()
+
+        # Simulate navigation steps
+        for i in range(10):
+            if goal_handle.is_cancel_requested:
+                self.get_logger().info('Navigation cancelled')
+                goal_handle.canceled()
+                result_msg.error_code = 1  # Cancelled
+                return result_msg
+
+            # Update feedback
+            feedback_msg.current_pose = self.current_pose
+            feedback_msg.distance_remaining = 10.0 - i
+            feedback_msg.progress = float(i) / 10.0
+
+            if self.enable_feedback:
+                goal_handle.publish_feedback(feedback_msg)
+
+            # Simulate navigation time
+            from time import sleep
+            sleep(0.5)
+
+        # Complete navigation
+        goal_handle.succeed()
+        result_msg.result = True
+        result_msg.error_code = 0  # Success
+
+        self.get_logger().info('Navigation completed successfully')
+        return result_msg
+
+
+def main(args=None):
+    rclpy.init(args=args)
+
+    integrated_node = IntegratedControlNode()
+
+    try:
+        rclpy.spin(integrated_node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        integrated_node.destroy_node()
+        rclpy.shutdown()
+```
+
+## Best Practices for Advanced Patterns
+
+### Action Best Practices
+
+1. **Appropriate Use Cases**: Use actions for long-running operations (>1 second) that need feedback or cancellation
+2. **Clear Feedback**: Provide meaningful feedback messages that help users understand progress
+3. **Goal Validation**: Validate goals in the goal callback to reject invalid requests early
+4. **Cancellation Handling**: Properly handle cancellation requests and clean up resources
+
+### Parameter Best Practices
+
+1. **Descriptive Names**: Use clear, descriptive parameter names
+2. **Default Values**: Always provide sensible default values
+3. **Validation**: Use parameter descriptors to constrain valid values
+4. **Documentation**: Document parameters with clear descriptions
+
+### Lifecycle Best Practices
+
+1. **State Consistency**: Ensure node behavior is consistent with its lifecycle state
+2. **Resource Management**: Properly allocate resources in configure and clean up in cleanup
+3. **Error Handling**: Handle errors appropriately in each transition callback
+4. **State Monitoring**: Monitor and log state transitions for debugging
+
+## Summary
+
+Advanced communication patterns in ROS 2 provide powerful tools for building sophisticated robotic applications. Actions enable long-running operations with feedback and cancellation, parameters allow runtime configuration without recompilation, and lifecycle management provides structured state control for complex systems. Understanding and properly implementing these patterns is essential for developing professional-grade robotic systems that can handle complex, multi-step operations with robust error handling and user interaction.
+
+## References
+
+ROS.org. (2023). *ROS 2 Advanced Communication Patterns Documentation*. Retrieved from https://docs.ros.org/en/humble/

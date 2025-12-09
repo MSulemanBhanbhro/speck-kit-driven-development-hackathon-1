@@ -1,0 +1,210 @@
+---
+title: "Prompt Templates for Robotics"
+description: "Examples of effective prompt templates for robotic applications"
+sidebar_position: 2
+---
+
+# Prompt Templates for Robotics
+
+## Overview
+
+This document provides examples of effective prompt templates for various robotic applications. These templates can be adapted and extended based on specific use cases and requirements.
+
+## Navigation Prompts
+
+### Basic Navigation
+
+```
+The robot needs to navigate from {start_location} to {end_location}.
+
+Considerations:
+- Avoid static and dynamic obstacles
+- Use shortest safe path
+- Follow established pathways when possible
+
+Return a sequence of waypoints in JSON format:
+{
+  "waypoints": [
+    {"x": ..., "y": ..., "theta": ...},
+    ...
+  ],
+  "estimated_time": ...
+}
+```
+
+### Navigation with Constraints
+
+```
+Navigate to {target} while considering:
+- Areas to avoid: {forbidden_areas}
+- Preferred paths: {preferred_paths}
+- Maximum speed: {max_speed}
+- Safety distance from obstacles: {safety_distance}
+
+Generate a safe navigation plan with alternative routes if the primary path is blocked.
+```
+
+## Manipulation Prompts
+
+### Object Grasping
+
+```
+Grasp the {object_type} located at {position}.
+
+Requirements:
+- Use appropriate grasp type for object properties
+- Consider object weight and fragility
+- Ensure stable grasp before lifting
+- Plan approach and retreat trajectories
+
+Return a manipulation plan with:
+{
+  "approach_trajectory": ...,
+  "grasp_parameters": {"type": ..., "position": ..., "force": ...},
+  "manipulation_sequence": [...]
+}
+```
+
+### Task-Oriented Manipulation
+
+```
+Perform the following manipulation task: {task_description}
+
+Object properties:
+- Type: {object_type}
+- Size: {dimensions}
+- Weight: {weight}
+- Material: {material}
+
+Generate a detailed manipulation plan considering:
+- Tool selection if needed
+- Safety constraints
+- Force limits
+- Environmental constraints
+```
+
+## Social Interaction Prompts
+
+### Basic Interaction
+
+```
+A human has said: "{human_statement}"
+
+Context:
+- Location: {location}
+- Time: {time}
+- Other people present: {people_count}
+- Current robot task: {current_task}
+
+Generate an appropriate response considering:
+- Politeness and social norms
+- Current task priority
+- Safety considerations
+- Human intent interpretation
+
+Return both verbal response and suggested actions.
+```
+
+### Task Request Handling
+
+```
+Human request: "{request}"
+
+Determine if the robot can fulfill this request based on:
+- Current capabilities
+- Safety constraints
+- Resource availability
+- Task priority
+
+If feasible, generate an action plan. If not, provide an appropriate explanation and alternative suggestions.
+```
+
+## Multi-Modal Integration
+
+### Vision-Language Integration
+
+```
+Visual input: {image_description}
+Accompanying text: "{text_input}"
+
+Interpret the combined visual and textual information to:
+- Identify relevant objects in the scene
+- Understand spatial relationships
+- Determine appropriate actions
+- Consider environmental context
+
+Return an action plan that integrates both modalities.
+```
+
+## Error Handling and Recovery
+
+### Failure Response
+
+```
+Previous action failed with error: "{error_description}"
+
+Current state:
+- Robot position: {position}
+- Object states: {object_states}
+- Environmental conditions: {conditions}
+
+Generate a recovery plan that:
+- Addresses the immediate failure
+- Attempts task completion via alternative methods
+- Ensures robot safety
+- Minimizes task disruption
+```
+
+## Best Practices for Prompt Design
+
+### 1. Be Explicit About Output Format
+
+Always specify the expected output format to ensure consistent responses:
+
+```
+Return your response in the following JSON format:
+{
+  "action_sequence": [...],
+  "confidence": ...,
+  "alternatives": [...]
+}
+```
+
+### 2. Include Context and Constraints
+
+Provide sufficient context for informed decision-making:
+
+```
+Context: {current_situation}
+Constraints: {limitations}
+Goal: {desired_outcome}
+```
+
+### 3. Handle Ambiguity
+
+Include instructions for handling ambiguous situations:
+
+```
+If the command is ambiguous, ask for clarification rather than making assumptions.
+```
+
+### 4. Prioritize Safety
+
+Always include safety considerations:
+
+```
+Safety constraints:
+- Avoid collisions
+- Respect human personal space
+- Operate within force limits
+```
+
+## Template Customization
+
+These templates should be customized based on:
+
+- Specific robot capabilities and limitations
+- Domain-specific requirements
+- Safety and regulatory considerations
+- Performance requirements
+- Integration with existing systems

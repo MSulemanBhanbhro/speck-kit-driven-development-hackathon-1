@@ -1,0 +1,75 @@
+---
+title: "Complete VLA Pipeline"
+description: "Mermaid diagram showing the complete Vision-Language-Action pipeline"
+sidebar_position: 2
+---
+
+import Mermaid from '@theme/Mermaid';
+
+# Complete VLA Pipeline
+
+The following diagram illustrates the complete Vision-Language-Action pipeline:
+
+<Mermaid>
+graph TB
+    subgraph "Input Layer"
+        A[Speech Input] --> B[Audio Processing]
+        C[Visual Input] --> D[Image Processing]
+    end
+
+    subgraph "Language Layer"
+        B --> E[Speech Recognition]
+        D --> F[Object Detection]
+        E --> G[Natural Language Understanding]
+        F --> G
+        H[Context Input] --> G
+    end
+
+    subgraph "Planning Layer"
+        G --> I[Task Planning]
+        J[Robot State] --> I
+    end
+
+    subgraph "Action Layer"
+        I --> K[Action Mapping]
+        L[Robot Capabilities] --> K
+        K --> M[Robot Execution]
+    end
+
+    subgraph "Feedback Layer"
+        M --> N[Execution Monitoring]
+        N --> O[Performance Metrics]
+        N --> G
+    end
+
+    style A fill:#e1f5fe
+    style M fill:#e8f5e8
+    style G fill:#fff3e0
+    style I fill:#f3e5f5
+    style K fill:#e0f2f1
+</Mermaid>
+
+## Pipeline Components
+
+### Input Layer
+- **Speech Input**: Captures voice commands from users
+- **Audio Processing**: Preprocesses audio for recognition
+- **Visual Input**: Captures images or video streams
+- **Image Processing**: Preprocesses visual data
+
+### Language Layer
+- **Speech Recognition**: Converts speech to text
+- **Object Detection**: Identifies objects in visual data
+- **Natural Language Understanding**: Interprets user intent from text and context
+
+### Planning Layer
+- **Task Planning**: Creates high-level action plans
+- **Robot State Integration**: Incorporates current robot status
+
+### Action Layer
+- **Action Mapping**: Translates plans to robot-specific commands
+- **Robot Execution**: Executes commands on the physical robot
+
+### Feedback Layer
+- **Execution Monitoring**: Tracks execution progress
+- **Performance Metrics**: Measures system performance

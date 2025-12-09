@@ -1,0 +1,546 @@
+openapi: 3.0.0
+info:
+  title: Digital Twin Simulation API
+  description: API for managing simulation environments, worlds, and robot models for the Digital Twin module
+  version: 1.0.0
+servers:
+  - url: https://api.simulation.example.com/v1
+    description: Production server
+  - url: https://staging-api.simulation.example.com/v1
+    description: Staging server
+
+paths:
+  /simulations:
+    get:
+      summary: List all simulations
+      description: Retrieve a list of all available simulations
+      responses:
+        '200':
+          description: A list of simulations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  simulations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Simulation'
+                  total:
+                    type: integer
+                  offset:
+                    type: integer
+                  limit:
+                    type: integer
+    post:
+      summary: Create a new simulation
+      description: Create a new simulation environment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SimulationInput'
+      responses:
+        '201':
+          description: Simulation created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Simulation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /simulations/{simulationId}:
+    get:
+      summary: Get a simulation by ID
+      description: Retrieve details of a specific simulation
+      parameters:
+        - name: simulationId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Simulation details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Simulation'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      summary: Update a simulation
+      description: Update details of a specific simulation
+      parameters:
+        - name: simulationId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SimulationInput'
+      responses:
+        '200':
+          description: Simulation updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Simulation'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      summary: Delete a simulation
+      description: Delete a specific simulation
+      parameters:
+        - name: simulationId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Simulation deleted successfully
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /simulations/{simulationId}/worlds:
+    get:
+      summary: List worlds in a simulation
+      description: Retrieve all worlds in a specific simulation
+      parameters:
+        - name: simulationId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of worlds
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  worlds:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/GazeboWorld'
+    post:
+      summary: Create a new world
+      description: Create a new world in the specified simulation
+      parameters:
+        - name: simulationId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GazeboWorldInput'
+      responses:
+        '201':
+          description: World created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GazeboWorld'
+
+  /simulations/{simulationId}/worlds/{worldId}:
+    get:
+      summary: Get a world by ID
+      description: Retrieve details of a specific world in a simulation
+      parameters:
+        - name: simulationId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: worldId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: World details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GazeboWorld'
+    put:
+      summary: Update a world
+      description: Update details of a specific world
+      parameters:
+        - name: simulationId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: worldId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GazeboWorldInput'
+      responses:
+        '200':
+          description: World updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GazeboWorld'
+    delete:
+      summary: Delete a world
+      description: Delete a specific world
+      parameters:
+        - name: simulationId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: worldId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: World deleted successfully
+
+  /simulations/{simulationId}/sensors:
+    get:
+      summary: List sensors in a simulation
+      description: Retrieve all sensors in a specific simulation
+      parameters:
+        - name: simulationId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of sensors
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sensors:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/GazeboSensor'
+
+  /simulations/{simulationId}/unity-scenes:
+    get:
+      summary: List Unity scenes in a simulation
+      description: Retrieve all Unity scenes in a specific simulation
+      parameters:
+        - name: simulationId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of Unity scenes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  scenes:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/UnityScene'
+
+components:
+  schemas:
+    Simulation:
+      type: object
+      required:
+        - id
+        - title
+        - description
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the simulation
+        title:
+          type: string
+          description: Title of the simulation
+          maxLength: 100
+        description:
+          type: string
+          description: Brief description of the simulation
+        physicsEngine:
+          type: string
+          description: Physics engine used (e.g., ODE, Bullet)
+        worlds:
+          type: array
+          description: List of worlds in the simulation
+          items:
+            $ref: '#/components/schemas/GazeboWorld'
+        sensors:
+          type: array
+          description: List of sensors in the simulation
+          items:
+            $ref: '#/components/schemas/GazeboSensor'
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation timestamp
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+
+    SimulationInput:
+      type: object
+      required:
+        - title
+        - description
+      properties:
+        title:
+          type: string
+          description: Title of the simulation
+          maxLength: 100
+        description:
+          type: string
+          description: Brief description of the simulation
+        physicsEngine:
+          type: string
+          description: Physics engine to use (e.g., ODE, Bullet)
+          default: ODE
+
+    GazeboWorld:
+      type: object
+      required:
+        - id
+        - name
+        - sdfContent
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the world
+        name:
+          type: string
+          description: Name of the world
+          maxLength: 100
+        description:
+          type: string
+          description: Brief description of the world
+        sdfContent:
+          type: string
+          description: SDF XML content defining the world
+        physicsProperties:
+          type: object
+          description: Physics properties (gravity, friction, etc.)
+        models:
+          type: array
+          description: List of models in the world
+          items:
+            $ref: '#/components/schemas/GazeboModel'
+
+    GazeboWorldInput:
+      type: object
+      required:
+        - name
+        - sdfContent
+      properties:
+        name:
+          type: string
+          description: Name of the world
+          maxLength: 100
+        description:
+          type: string
+          description: Brief description of the world
+        sdfContent:
+          type: string
+          description: SDF XML content defining the world
+        physicsProperties:
+          type: object
+          description: Physics properties (gravity, friction, etc.)
+
+    GazeboModel:
+      type: object
+      required:
+        - id
+        - name
+        - sdfContent
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the model
+        name:
+          type: string
+          description: Name of the model
+          maxLength: 100
+        sdfContent:
+          type: string
+          description: SDF XML content defining the model
+        visualProperties:
+          type: object
+          description: Visual properties (color, material, etc.)
+        collisionProperties:
+          type: object
+          description: Collision properties
+        jointProperties:
+          type: object
+          description: Joint properties
+        sensors:
+          type: array
+          description: Sensors attached to the model
+          items:
+            $ref: '#/components/schemas/GazeboSensor'
+
+    GazeboSensor:
+      type: object
+      required:
+        - id
+        - type
+        - name
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the sensor
+        type:
+          type: string
+          enum: [lidar, imu, depth, camera, gps]
+          description: Type of sensor
+        name:
+          type: string
+          description: Name of the sensor
+          maxLength: 100
+        configuration:
+          type: object
+          description: Sensor-specific configuration parameters
+        topic:
+          type: string
+          description: ROS topic for sensor data
+        updateRate:
+          type: number
+          description: Frequency of sensor updates (Hz)
+
+    UnityScene:
+      type: object
+      required:
+        - id
+        - name
+        - filePath
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the scene
+        name:
+          type: string
+          description: Name of the scene
+          maxLength: 100
+        description:
+          type: string
+          description: Brief description of the scene
+        filePath:
+          type: string
+          description: Path to the Unity scene file
+        objects:
+          type: array
+          description: Game objects in the scene
+          items:
+            $ref: '#/components/schemas/UnityObject'
+        lighting:
+          type: object
+          description: Lighting configuration
+        cameraSettings:
+          type: object
+          description: Camera configuration
+
+    UnityObject:
+      type: object
+      required:
+        - id
+        - name
+        - type
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the object
+        name:
+          type: string
+          description: Name of the object
+          maxLength: 100
+        type:
+          type: string
+          enum: [robot, sensor, environment, ui-element]
+          description: Type of object
+        position:
+          type: object
+          properties:
+            x:
+              type: number
+            y:
+              type: number
+            z:
+              type: number
+          description: Position coordinates
+        rotation:
+          type: object
+          properties:
+            x:
+              type: number
+            y:
+              type: number
+            z:
+              type: number
+            w:
+              type: number
+          description: Rotation quaternion
+        scale:
+          type: object
+          properties:
+            x:
+              type: number
+            y:
+              type: number
+            z:
+              type: number
+          description: Scale factors
+
+  responses:
+    BadRequest:
+      description: Bad request - invalid input
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: "Invalid input provided"
+              details:
+                type: object
+                description: Additional error details
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: "Resource not found"

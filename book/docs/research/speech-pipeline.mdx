@@ -1,0 +1,29 @@
+---
+title: "Speech Processing Pipeline"
+description: "Mermaid diagram showing the speech recognition pipeline"
+sidebar_position: 2
+---
+
+import Mermaid from '@theme/Mermaid';
+
+# Speech Processing Pipeline
+
+The following diagram illustrates the speech recognition pipeline:
+
+<Mermaid>
+graph TD
+    A[Audio Input] --> B[Preprocessing]
+    B --> C[Feature Extraction]
+    C --> D[Acoustic Model]
+    D --> E[Language Model]
+    E --> F[Decoder]
+    F --> G[Text Output]
+
+    style A fill:#e1f5fe
+    style G fill:#e8f5e8
+    style B fill:#fff3e0
+    style C fill:#fff3e0
+    style D fill:#f3e5f5
+    style E fill:#f3e5f5
+    style F fill:#e0f2f1
+</Mermaid>

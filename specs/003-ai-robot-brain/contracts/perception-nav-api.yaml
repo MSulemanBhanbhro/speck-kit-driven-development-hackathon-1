@@ -1,0 +1,679 @@
+openapi: 3.0.0
+info:
+  title: AI-Robot Brain Perception & Navigation API
+  description: API for managing perception and navigation systems for the AI-Robot Brain module
+  version: 1.0.0
+servers:
+  - url: https://api.perception-nav.example.com/v1
+    description: Production server
+  - url: https://staging-api.perception-nav.example.com/v1
+    description: Staging server
+
+paths:
+  /perception-systems:
+    get:
+      summary: List all perception systems
+      description: Retrieve a list of all available perception systems
+      responses:
+        '200':
+          description: A list of perception systems
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  perceptionSystems:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PerceptionSystem'
+                  total:
+                    type: integer
+                  offset:
+                    type: integer
+                  limit:
+                    type: integer
+    post:
+      summary: Create a new perception system
+      description: Create a new perception system configuration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PerceptionSystemInput'
+      responses:
+        '201':
+          description: Perception system created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PerceptionSystem'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /perception-systems/{systemId}:
+    get:
+      summary: Get a perception system by ID
+      description: Retrieve details of a specific perception system
+      parameters:
+        - name: systemId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Perception system details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PerceptionSystem'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      summary: Update a perception system
+      description: Update details of a specific perception system
+      parameters:
+        - name: systemId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PerceptionSystemInput'
+      responses:
+        '200':
+          description: Perception system updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PerceptionSystem'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      summary: Delete a perception system
+      description: Delete a specific perception system
+      parameters:
+        - name: systemId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Perception system deleted successfully
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /perception-systems/{systemId}/pipelines:
+    get:
+      summary: List pipelines in a perception system
+      description: Retrieve all perception pipelines in a specific system
+      parameters:
+        - name: systemId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of perception pipelines
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pipelines:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PerceptionPipeline'
+    post:
+      summary: Create a new perception pipeline
+      description: Create a new perception pipeline in the specified system
+      parameters:
+        - name: systemId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PerceptionPipelineInput'
+      responses:
+        '201':
+          description: Perception pipeline created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PerceptionPipeline'
+
+  /perception-systems/{systemId}/datasets:
+    get:
+      summary: List datasets for a perception system
+      description: Retrieve all datasets associated with a specific perception system
+      parameters:
+        - name: systemId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of datasets
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  datasets:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Dataset'
+
+  /navigation-systems:
+    get:
+      summary: List all navigation systems
+      description: Retrieve a list of all available navigation systems
+      responses:
+        '200':
+          description: A list of navigation systems
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  navigationSystems:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/NavigationSystem'
+                  total:
+                    type: integer
+                  offset:
+                    type: integer
+                  limit:
+                    type: integer
+    post:
+      summary: Create a new navigation system
+      description: Create a new navigation system configuration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NavigationSystemInput'
+      responses:
+        '201':
+          description: Navigation system created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NavigationSystem'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /navigation-systems/{systemId}:
+    get:
+      summary: Get a navigation system by ID
+      description: Retrieve details of a specific navigation system
+      parameters:
+        - name: systemId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Navigation system details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NavigationSystem'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      summary: Update a navigation system
+      description: Update details of a specific navigation system
+      parameters:
+        - name: systemId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NavigationSystemInput'
+      responses:
+        '200':
+          description: Navigation system updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NavigationSystem'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      summary: Delete a navigation system
+      description: Delete a specific navigation system
+      parameters:
+        - name: systemId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Navigation system deleted successfully
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /navigation-systems/{systemId}/planners:
+    get:
+      summary: List planners in a navigation system
+      description: Retrieve all path planners in a specific navigation system
+      parameters:
+        - name: systemId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of path planners
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  planners:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PathPlanner'
+
+  /integration-pipelines:
+    get:
+      summary: List all perception-navigation integration pipelines
+      description: Retrieve a list of all perception-navigation integration systems
+      responses:
+        '200':
+          description: A list of integration pipelines
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  integrationPipelines:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/IntegrationPipeline'
+    post:
+      summary: Create a new integration pipeline
+      description: Create a new pipeline that connects perception and navigation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IntegrationPipelineInput'
+      responses:
+        '201':
+          description: Integration pipeline created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IntegrationPipeline'
+
+components:
+  schemas:
+    PerceptionSystem:
+      type: object
+      required:
+        - id
+        - name
+        - description
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the perception system
+        name:
+          type: string
+          description: Name of the perception system
+          maxLength: 100
+        description:
+          type: string
+          description: Brief description of the perception system
+        type:
+          type: string
+          enum: [vslam, vio, object-detection, semantic-segmentation]
+          description: Type of perception system
+        pipelines:
+          type: array
+          description: List of perception pipelines in the system
+          items:
+            $ref: '#/components/schemas/PerceptionPipeline'
+        datasets:
+          type: array
+          description: List of datasets used by the system
+          items:
+            $ref: '#/components/schemas/Dataset'
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation timestamp
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+
+    PerceptionSystemInput:
+      type: object
+      required:
+        - name
+        - description
+      properties:
+        name:
+          type: string
+          description: Name of the perception system
+          maxLength: 100
+        description:
+          type: string
+          description: Brief description of the perception system
+        type:
+          type: string
+          enum: [vslam, vio, object-detection, semantic-segmentation]
+          description: Type of perception system
+
+    PerceptionPipeline:
+      type: object
+      required:
+        - id
+        - name
+        - type
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the pipeline
+        name:
+          type: string
+          description: Name of the pipeline
+          maxLength: 100
+        description:
+          type: string
+          description: Brief description of the pipeline
+        type:
+          type: string
+          enum: [vslam, vio, feature-detection, pose-estimation, mapping]
+          description: Type of perception pipeline
+        components:
+          type: array
+          description: List of pipeline components
+          items:
+            type: string
+        inputType:
+          type: string
+          description: Type of input data (e.g., "camera", "lidar")
+        outputType:
+          type: string
+          description: Type of output data (e.g., "pose", "map")
+        performanceMetrics:
+          type: object
+          description: Performance metrics (fps, accuracy, etc.)
+
+    PerceptionPipelineInput:
+      type: object
+      required:
+        - name
+        - type
+      properties:
+        name:
+          type: string
+          description: Name of the pipeline
+          maxLength: 100
+        description:
+          type: string
+          description: Brief description of the pipeline
+        type:
+          type: string
+          enum: [vslam, vio, feature-detection, pose-estimation, mapping]
+          description: Type of perception pipeline
+        components:
+          type: array
+          description: List of pipeline components
+          items:
+            type: string
+        inputType:
+          type: string
+          description: Type of input data (e.g., "camera", "lidar")
+        outputType:
+          type: string
+          description: Type of output data (e.g., "pose", "map")
+
+    Dataset:
+      type: object
+      required:
+        - id
+        - name
+        - size
+        - format
+        - source
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the dataset
+        name:
+          type: string
+          description: Name of the dataset
+          maxLength: 100
+        description:
+          type: string
+          description: Brief description of the dataset
+        size:
+          type: number
+          description: Size of the dataset in MB
+        format:
+          type: string
+          enum: [image, pointcloud, lidar, camera, imu]
+          description: Format of the dataset
+        source:
+          type: string
+          enum: [synthetic, real-world, mixed]
+          description: Source of the dataset
+        syntheticMethod:
+          type: string
+          description: Method used for synthetic data generation
+        path:
+          type: string
+          description: Path to dataset files
+
+    NavigationSystem:
+      type: object
+      required:
+        - id
+        - name
+        - description
+        - locomotionType
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the navigation system
+        name:
+          type: string
+          description: Name of the navigation system
+          maxLength: 100
+        description:
+          type: string
+          description: Brief description of the navigation system
+        locomotionType:
+          type: string
+          enum: [biped, wheeled, tracked, flying]
+          description: Type of locomotion
+        planners:
+          type: array
+          description: List of path planners used
+          items:
+            type: string
+        controllers:
+          type: array
+          description: List of motion controllers
+          items:
+            type: string
+        sensors:
+          type: array
+          description: List of sensors used for navigation
+          items:
+            type: string
+        performanceMetrics:
+          type: object
+          description: Performance metrics (planning time, success rate, etc.)
+
+    NavigationSystemInput:
+      type: object
+      required:
+        - name
+        - description
+        - locomotionType
+      properties:
+        name:
+          type: string
+          description: Name of the navigation system
+          maxLength: 100
+        description:
+          type: string
+          description: Brief description of the navigation system
+        locomotionType:
+          type: string
+          enum: [biped, wheeled, tracked, flying]
+          description: Type of locomotion
+        planners:
+          type: array
+          description: List of path planners to use
+          items:
+            type: string
+        controllers:
+          type: array
+          description: List of motion controllers to use
+          items:
+            type: string
+        sensors:
+          type: array
+          description: List of sensors to use for navigation
+          items:
+            type: string
+
+    PathPlanner:
+      type: object
+      required:
+        - id
+        - name
+        - type
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the path planner
+        name:
+          type: string
+          description: Name of the path planner
+          maxLength: 100
+        type:
+          type: string
+          enum: [global, local]
+          description: Type of path planner
+        algorithm:
+          type: string
+          description: Algorithm used (e.g., "A*", "Dijkstra", "RRT")
+        parameters:
+          type: object
+          description: Planner-specific parameters
+
+    IntegrationPipeline:
+      type: object
+      required:
+        - id
+        - name
+        - perceptionSystemId
+        - navigationSystemId
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the integration pipeline
+        name:
+          type: string
+          description: Name of the integration pipeline
+          maxLength: 100
+        description:
+          type: string
+          description: Brief description of the integration pipeline
+        perceptionSystemId:
+          type: string
+          description: ID of the connected perception system
+        navigationSystemId:
+          type: string
+          description: ID of the connected navigation system
+        connectionType:
+          type: string
+          enum: [direct, message-passing, service-call]
+          description: Type of connection between systems
+        dataFlow:
+          type: object
+          description: Description of data flow between systems
+
+    IntegrationPipelineInput:
+      type: object
+      required:
+        - name
+        - perceptionSystemId
+        - navigationSystemId
+      properties:
+        name:
+          type: string
+          description: Name of the integration pipeline
+          maxLength: 100
+        description:
+          type: string
+          description: Brief description of the integration pipeline
+        perceptionSystemId:
+          type: string
+          description: ID of the connected perception system
+        navigationSystemId:
+          type: string
+          description: ID of the connected navigation system
+        connectionType:
+          type: string
+          enum: [direct, message-passing, service-call]
+          description: Type of connection between systems
+
+  responses:
+    BadRequest:
+      description: Bad request - invalid input
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: "Invalid input provided"
+              details:
+                type: object
+                description: Additional error details
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: "Resource not found"

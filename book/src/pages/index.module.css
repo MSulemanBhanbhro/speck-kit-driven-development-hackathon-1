@@ -1,0 +1,45 @@
+.heroSection {
+  background: linear-gradient(135deg, #0e0f2b, #1b1d3a);
+  color: white;
+  padding: 100px 20px;
+  text-align: center;
+  min-height: 80vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.container {
+  max-width: 800px;
+  margin: auto;
+}
+
+.title {
+  font-size: 3.5rem;
+  font-weight: 800;
+  margin-bottom: 20px;
+  letter-spacing: 1px;
+}
+
+.subtitle {
+  font-size: 1.25rem;
+  opacity: 0.85;
+  line-height: 1.8;
+  margin-bottom: 40px;
+}
+
+.startButton {
+  background: #ffcc00;
+  padding: 14px 30px;
+  color: #000;
+  border-radius: 10px;
+  font-size: 1.2rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: 0.3s;
+}
+
+.startButton:hover {
+  background: #ffd84f;
+  transform: translateY(-3px);
+}

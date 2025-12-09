@@ -1,0 +1,53 @@
+graph TD
+    subgraph "Humanoid Robot Structure"
+        A[Torso - Base Link] --> B[Head Joint]
+        A --> C[Left Shoulder Joint]
+        A --> D[Right Shoulder Joint]
+        A --> E[Left Hip Joint]
+        A --> F[Right Hip Joint]
+
+        B --> G[Head Link]
+        C --> H[Left Upper Arm Link]
+        D --> I[Right Upper Arm Link]
+        E --> J[Left Upper Leg Link]
+        F --> K[Right Upper Leg Link]
+
+        H --> L[Left Elbow Joint]
+        I --> M[Right Elbow Joint]
+        J --> N[Left Knee Joint]
+        K --> O[Right Knee Joint]
+
+        L --> P[Left Lower Arm Link]
+        M --> Q[Right Lower Arm Link]
+        N --> R[Left Lower Leg Link]
+        O --> S[Right Lower Leg Link]
+    end
+
+    subgraph "URDF Components"
+        U[URDF File] --> V[Links Definition]
+        U --> W[Joints Definition]
+        U --> X[Materials Definition]
+    end
+
+    subgraph "Visualization & Simulation"
+        Y[Robot State Publisher] --> Z[TF Transforms]
+        AA[Joint State Publisher] --> AB[Joint Values]
+        Z --> AC[RViz Visualization]
+        AB --> Y
+    end
+
+    V --> A
+    W --> B
+    Y --> A
+    Z --> A
+
+    style A fill:#4CAF50,stroke:#388E3C,color:#fff
+    style G fill:#2196F3,stroke:#0D47A1,color:#fff
+    style H fill:#FF9800,stroke:#E65100,color:#fff
+    style I fill:#FF9800,stroke:#E65100,color:#fff
+    style J fill:#F44336,stroke:#D32F2F,color:#fff
+    style K fill:#F44336,stroke:#D32F2F,color:#fff
+    style P fill:#FF9800,stroke:#E65100,color:#fff
+    style Q fill:#FF9800,stroke:#E65100,color:#fff
+    style R fill:#F44336,stroke:#D32F2F,color:#fff
+    style S fill:#F44336,stroke:#D32F2F,color:#fff

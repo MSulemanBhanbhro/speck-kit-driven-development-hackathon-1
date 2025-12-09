@@ -1,0 +1,523 @@
+---
+title: Node Implementation and Control
+description: Implementing robot communication nodes using programming interfaces to control robotic systems
+sidebar_position: 1
+---
+
+# Node Implementation and Control
+
+## Introduction to Node Implementation
+
+In the previous chapter, we explored the fundamental concepts of ROS 2 communication patterns. Now, we'll dive deeper into practical node implementation, focusing on how to create robust nodes that can control robotic systems effectively. This chapter builds upon the foundational knowledge of nodes, topics, and services by demonstrating how to implement nodes that interact with real robotic hardware and systems.
+
+According to Macenski (2021), effective node implementation requires careful consideration of resource management, error handling, and system integration to create reliable robotic applications (Macenski, S. (2021). *Professional Robotics: Tools and Applications for Robot Development*. Apress).
+
+## Advanced Node Architecture
+
+### Node Composition and Design Patterns
+
+When implementing nodes for robotic systems, several design patterns emerge that help create maintainable and efficient code:
+
+1. **Component-based Architecture**: Breaking complex nodes into smaller, reusable components
+2. **State Machine Pattern**: Managing different operational states of the robot
+3. **Observer Pattern**: Responding to changes in robot state or sensor data
+4. **Command Pattern**: Encapsulating control actions as objects
+
+### Node Lifecycle Management
+
+ROS 2 provides a sophisticated lifecycle management system that allows nodes to transition through different states in a controlled manner:
+
+```python
+import rclpy
+from rclpy.lifecycle import LifecycleNode, LifecycleState, TransitionCallbackReturn
+from rclpy.lifecycle import Node as rclpy_Node
+
+class LifecycleControlNode(LifecycleNode):
+    def __init__(self):
+        super().__init__('lifecycle_control_node')
+
+    def on_configure(self, state):
+        """Called when transitioning to configuring state."""
+        self.get_logger().info(f'Configuring node: {self.get_name()}')
+        # Initialize resources
+        return TransitionCallbackReturn.SUCCESS
+
+    def on_activate(self, state):
+        """Called when transitioning to active state."""
+        self.get_logger().info(f'Activating node: {self.get_name()}')
+        # Activate publishers/subscribers
+        return TransitionCallbackReturn.SUCCESS
+
+    def on_deactivate(self, state):
+        """Called when transitioning to inactive state."""
+        self.get_logger().info(f'Deactivating node: {self.get_name()}')
+        # Deactivate publishers/subscribers
+        return TransitionCallbackReturn.SUCCESS
+
+    def on_cleanup(self, state):
+        """Called when transitioning to cleaning up state."""
+        self.get_logger().info(f'Cleaning up node: {self.get_name()}')
+        # Clean up resources
+        return TransitionCallbackReturn.SUCCESS
+```
+
+## Implementing Sensor Data Publishers
+
+### Creating a Sensor Node
+
+A sensor node is responsible for reading data from physical sensors and publishing it to appropriate topics. Here's an example of a sensor node that publishes simulated IMU data:
+
+```python
+import rclpy
+from rclpy.node import Node
+from sensor_msgs.msg import Imu
+from std_msgs.msg import Header
+import math
+import time
+
+class ImuSensorNode(Node):
+    def __init__(self):
+        super().__init__('imu_sensor_node')
+
+        # Create publisher for IMU data
+        self.publisher = self.create_publisher(Imu, '/imu/data', 10)
+
+        # Create timer for periodic publishing
+        self.timer = self.create_timer(0.1, self.publish_imu_data)  # 10 Hz
+
+        # Initialize sensor data
+        self.sequence_number = 0
+        self.start_time = time.time()
+
+        self.get_logger().info('IMU Sensor Node initialized')
+
+    def publish_imu_data(self):
+        """Publish simulated IMU data."""
+        msg = Imu()
+
+        # Set header
+        msg.header = Header()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.header.frame_id = 'imu_link'
+        msg.header.seq = self.sequence_number
+
+        # Simulate sensor data
+        current_time = time.time() - self.start_time
+
+        # Set orientation (simulated)
+        msg.orientation.x = 0.0
+        msg.orientation.y = 0.0
+        msg.orientation.z = math.sin(current_time * 0.5) * 0.1
+        msg.orientation.w = math.cos(current_time * 0.5) * 0.1
+
+        # Set orientation covariance (unknown)
+        msg.orientation_covariance = [-1.0] + [0.0] * 8
+
+        # Set angular velocity (simulated)
+        msg.angular_velocity.x = math.cos(current_time) * 0.01
+        msg.angular_velocity.y = math.sin(current_time) * 0.01
+        msg.angular_velocity.z = 0.01
+
+        # Set angular velocity covariance (unknown)
+        msg.angular_velocity_covariance = [0.0] * 9
+
+        # Set linear acceleration (simulated)
+        msg.linear_acceleration.x = math.sin(current_time * 2) * 0.5
+        msg.linear_acceleration.y = math.cos(current_time * 2) * 0.3
+        msg.linear_acceleration.z = 9.81  # gravity
+
+        # Set linear acceleration covariance (unknown)
+        msg.linear_acceleration_covariance = [0.0] * 9
+
+        # Publish the message
+        self.publisher.publish(msg)
+
+        # Increment sequence number
+        self.sequence_number += 1
+
+        # Log the published data
+        self.get_logger().info(
+            f'Published IMU data: orientation.z={msg.orientation.z:.3f}, '
+            f'linear_acc.x={msg.linear_acceleration.x:.3f}'
+        )
+```
+
+### Sensor Fusion Nodes
+
+In complex robotic systems, multiple sensors often need to be combined to create more accurate state estimates:
+
+```python
+import rclpy
+from rclpy.node import Node
+from sensor_msgs.msg import Imu, MagneticField
+from geometry_msgs.msg import Vector3
+import numpy as np
+
+class SensorFusionNode(Node):
+    def __init__(self):
+        super().__init__('sensor_fusion_node')
+
+        # Subscribe to IMU data
+        self.imu_sub = self.create_subscription(
+            Imu, '/imu/data', self.imu_callback, 10)
+
+        # Subscribe to magnetometer data
+        self.mag_sub = self.create_subscription(
+            MagneticField, '/magnetometer/data', self.mag_callback, 10)
+
+        # Publisher for fused orientation
+        self.fused_pub = self.create_publisher(Imu, '/imu/fused', 10)
+
+        # Store latest sensor readings
+        self.latest_imu = None
+        self.latest_mag = None
+
+        self.get_logger().info('Sensor Fusion Node initialized')
+
+    def imu_callback(self, msg):
+        """Handle incoming IMU data."""
+        self.latest_imu = msg
+        self.fuse_sensors_if_ready()
+
+    def mag_callback(self, msg):
+        """Handle incoming magnetometer data."""
+        self.latest_mag = msg
+        self.fuse_sensors_if_ready()
+
+    def fuse_sensors_if_ready(self):
+        """Fuse sensor data if both sensors have provided data."""
+        if self.latest_imu and self.latest_mag:
+            # Perform sensor fusion (simplified example)
+            fused_msg = self.create_fused_message()
+            self.fused_pub.publish(fused_msg)
+
+    def create_fused_message(self):
+        """Create a fused IMU message."""
+        fused_msg = Imu()
+        # Copy header from latest IMU
+        fused_msg.header = self.latest_imu.header
+
+        # For this example, we'll just use the IMU orientation
+        # In a real implementation, you would perform actual sensor fusion
+        fused_msg.orientation = self.latest_imu.orientation
+
+        return fused_msg
+```
+
+## Implementing Control Nodes
+
+### Robot Controller Node
+
+A control node typically subscribes to command topics and publishes to actuator topics. Here's an example of a simple robot controller:
+
+```python
+import rclpy
+from rclpy.node import Node
+from geometry_msgs.msg import Twist, Vector3
+from std_msgs.msg import Float64
+import math
+
+class RobotControllerNode(Node):
+    def __init__(self):
+        super().__init__('robot_controller')
+
+        # Subscribe to velocity commands
+        self.cmd_sub = self.create_subscription(
+            Twist, '/cmd_vel', self.cmd_vel_callback, 10)
+
+        # Publishers for individual wheel commands
+        self.left_wheel_pub = self.create_publisher(Float64, '/left_wheel/cmd', 10)
+        self.right_wheel_pub = self.create_publisher(Float64, '/right_wheel/cmd', 10)
+
+        # Robot parameters
+        self.wheel_radius = 0.1  # meters
+        self.wheel_separation = 0.5  # meters (distance between wheels)
+
+        # Current command
+        self.current_cmd = Twist()
+
+        self.get_logger().info('Robot Controller Node initialized')
+
+    def cmd_vel_callback(self, msg):
+        """Handle incoming velocity commands."""
+        self.current_cmd = msg
+        self.calculate_wheel_velocities()
+
+    def calculate_wheel_velocities(self):
+        """Calculate individual wheel velocities from twist command."""
+        # Calculate wheel velocities from linear and angular velocity
+        # v_left = (v - w * L/2) / r
+        # v_right = (v + w * L/2) / r
+        # where v = linear velocity, w = angular velocity, L = wheel separation, r = wheel radius
+
+        linear_vel = self.current_cmd.linear.x
+        angular_vel = self.current_cmd.angular.z
+
+        left_wheel_vel = (linear_vel - angular_vel * self.wheel_separation / 2.0) / self.wheel_radius
+        right_wheel_vel = (linear_vel + angular_vel * self.wheel_separation / 2.0) / self.wheel_radius
+
+        # Create and publish wheel velocity commands
+        left_msg = Float64()
+        left_msg.data = left_wheel_vel
+        self.left_wheel_pub.publish(left_msg)
+
+        right_msg = Float64()
+        right_msg.data = right_wheel_vel
+        self.right_wheel_pub.publish(right_msg)
+
+        self.get_logger().info(
+            f'Command: linear={linear_vel:.2f}, angular={angular_vel:.2f} | '
+            f'Wheel velocities: left={left_wheel_vel:.2f}, right={right_wheel_vel:.2f}'
+        )
+```
+
+### PID Controller Node
+
+For more precise control, PID (Proportional-Integral-Derivative) controllers are often used:
+
+```python
+import rclpy
+from rclpy.node import Node
+from std_msgs.msg import Float64
+from geometry_msgs.msg import Twist
+
+class PIDControllerNode(Node):
+    def __init__(self):
+        super().__init__('pid_controller')
+
+        # Subscribe to desired and actual values
+        self.desired_sub = self.create_subscription(
+            Float64, '/desired_value', self.desired_callback, 10)
+        self.actual_sub = self.create_subscription(
+            Float64, '/actual_value', self.actual_callback, 10)
+
+        # Publisher for control output
+        self.control_pub = self.create_publisher(Float64, '/control_output', 10)
+
+        # PID parameters
+        self.kp = 1.0  # Proportional gain
+        self.ki = 0.1  # Integral gain
+        self.kd = 0.05  # Derivative gain
+
+        # PID state variables
+        self.previous_error = 0.0
+        self.integral = 0.0
+        self.last_time = self.get_clock().now()
+
+        # Current values
+        self.desired_value = 0.0
+        self.actual_value = 0.0
+
+        self.get_logger().info('PID Controller Node initialized')
+
+    def desired_callback(self, msg):
+        """Handle incoming desired value."""
+        self.desired_value = msg.data
+
+    def actual_callback(self, msg):
+        """Handle incoming actual value."""
+        self.actual_value = msg.data
+        self.compute_control_output()
+
+    def compute_control_output(self):
+        """Compute PID control output."""
+        current_time = self.get_clock().now()
+        dt = (current_time - self.last_time).nanoseconds / 1e9  # Convert to seconds
+
+        if dt <= 0:
+            return  # Skip if time hasn't advanced
+
+        # Calculate error
+        error = self.desired_value - self.actual_value
+
+        # Update integral
+        self.integral += error * dt
+
+        # Calculate derivative
+        derivative = (error - self.previous_error) / dt if dt > 0 else 0.0
+
+        # Calculate PID output
+        output = (self.kp * error) + (self.ki * self.integral) + (self.kd * derivative)
+
+        # Apply output limits if needed
+        output = max(-10.0, min(10.0, output))  # Limit output to ±10
+
+        # Create and publish control output
+        output_msg = Float64()
+        output_msg.data = output
+        self.control_pub.publish(output_msg)
+
+        # Update state for next iteration
+        self.previous_error = error
+        self.last_time = current_time
+
+        self.get_logger().info(
+            f'PID: desired={self.desired_value:.2f}, actual={self.actual_value:.2f}, '
+            f'error={error:.2f}, output={output:.2f}'
+        )
+```
+
+## Service-Based Control
+
+### Control Service Server
+
+For operations that require immediate completion, service-based control can be used:
+
+```python
+import rclpy
+from rclpy.node import Node
+from example_interfaces.srv import Trigger
+from std_msgs.msg import Bool
+
+class ControlServiceNode(Node):
+    def __init__(self):
+        super().__init__('control_service_node')
+
+        # Create service for robot control
+        self.control_service = self.create_service(
+            Trigger, 'execute_control_action', self.control_callback)
+
+        # Publisher for robot state
+        self.state_pub = self.create_publisher(Bool, '/robot_enabled', 10)
+
+        # Robot state
+        self.robot_enabled = False
+
+        self.get_logger().info('Control Service Node initialized')
+
+    def control_callback(self, request, response):
+        """Handle control service requests."""
+        try:
+            # Perform the control action
+            success = self.execute_control_action()
+
+            # Set response
+            response.success = success
+            response.message = "Control action completed successfully" if success else "Control action failed"
+
+            # Publish robot state
+            state_msg = Bool()
+            state_msg.data = self.robot_enabled
+            self.state_pub.publish(state_msg)
+
+            self.get_logger().info(f'Control action completed: {response.message}')
+
+        except Exception as e:
+            response.success = False
+            response.message = f'Control action failed: {str(e)}'
+            self.get_logger().error(f'Control action error: {str(e)}')
+
+        return response
+
+    def execute_control_action(self):
+        """Execute the actual control action."""
+        # Simulate some control action
+        # In a real implementation, this would interact with actual hardware
+        self.robot_enabled = not self.robot_enabled  # Toggle state
+        return True
+```
+
+## Best Practices for Node Implementation
+
+### Error Handling and Robustness
+
+Robust nodes should handle various error conditions gracefully:
+
+```python
+import rclpy
+from rclpy.node import Node
+from rclpy.exceptions import ParameterNotDeclaredException
+from rclpy.parameter import Parameter
+
+class RobustNode(Node):
+    def __init__(self):
+        super().__init__('robust_node')
+
+        try:
+            # Safely declare and get parameters
+            self.declare_parameter('param_name', 'default_value')
+            param_value = self.get_parameter('param_name').value
+
+            # Initialize node components
+            self.setup_components()
+
+        except ParameterNotDeclaredException as e:
+            self.get_logger().error(f'Parameter not declared: {e}')
+            raise
+        except Exception as e:
+            self.get_logger().error(f'Failed to initialize node: {e}')
+            raise
+
+    def setup_components(self):
+        """Initialize node components safely."""
+        try:
+            # Component initialization code
+            pass
+        except Exception as e:
+            self.get_logger().error(f'Failed to setup components: {e}')
+            raise
+
+    def destroy_node(self):
+        """Clean up resources when node is destroyed."""
+        try:
+            # Clean up resources
+            if hasattr(self, 'timer') and self.timer is not None:
+                self.timer.cancel()
+
+            # Additional cleanup code
+            super().destroy_node()
+        except Exception as e:
+            self.get_logger().error(f'Error during node cleanup: {e}')
+            # Still call parent method even if cleanup fails
+            super().destroy_node()
+```
+
+### Resource Management
+
+Proper resource management is crucial for long-running robotic systems:
+
+```python
+import rclpy
+from rclpy.node import Node
+from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy
+
+class ResourceManagedNode(Node):
+    def __init__(self):
+        super().__init__('resource_managed_node')
+
+        # Use appropriate QoS settings for resource efficiency
+        qos_profile = QoSProfile(
+            depth=10,
+            reliability=ReliabilityPolicy.BEST_EFFORT,  # Use BEST_EFFORT for high-frequency data
+            durability=DurabilityPolicy.VOLATILE
+        )
+
+        # Create publisher with appropriate QoS
+        self.publisher = self.create_publisher(String, 'topic_name', qos_profile)
+
+        # Create timer with appropriate period
+        self.timer = self.create_timer(0.1, self.timer_callback)  # 10 Hz instead of higher frequency
+
+        # Initialize other resources
+        self.initialize_resources()
+
+    def initialize_resources(self):
+        """Initialize resources with proper error handling."""
+        # Initialize resources here
+        pass
+
+    def timer_callback(self):
+        """Timer callback with resource considerations."""
+        # Perform operations efficiently
+        pass
+```
+
+## Summary
+
+This chapter has covered the practical aspects of implementing ROS 2 nodes for robotic control. We've explored advanced node architectures, sensor data publishing, control implementations, and service-based control systems. The examples provided demonstrate how to create robust, maintainable nodes that can effectively control robotic systems.
+
+Understanding these implementation patterns is crucial for developing complex robotic applications. As we move to the next chapters, we'll explore how to represent robot structure and implement advanced communication patterns.
+
+## References
+
+Macenski, S. (2021). *Professional Robotics: Tools and Applications for Robot Development*. Apress.

@@ -1,0 +1,84 @@
+/**
+ * Any CSS included here will be global. The classic template
+ * bundles Infima by default. Infima is a CSS framework designed to
+ * work well for content-centric websites.
+ */
+
+/* You can override the classic template styles here. */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --ifm-font-family-base: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif;
+  --ifm-color-primary: #25c2a0;
+  --ifm-color-primary-dark: #21af90;
+  --ifm-color-primary-darker: #1fa588;
+  --ifm-color-primary-darkest: #1a8870;
+  --ifm-color-primary-light: #29d5b0;
+  --ifm-color-primary-lighter: #32d8b4;
+  --ifm-color-primary-lightest: #4fddbf;
+  --ifm-code-font-size: 95%;
+}
+
+/* APA Citation styles */
+.citation {
+  font-size: 0.9em;
+  color: #666;
+  border-bottom: 1px dotted #666;
+  cursor: help;
+}
+
+.citation-list {
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid #eee;
+}
+
+.bibliography {
+  list-style-type: none;
+  padding-left: 0;
+}
+
+.bibliography li {
+  margin-bottom: 0.5rem;
+  line-height: 1.5;
+}
+
+/* Book-specific styles */
+.book-content {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.chapter-intro {
+  font-size: 1.2em;
+  color: #555;
+  font-style: italic;
+  margin-bottom: 2rem;
+}
+
+.section-numbering {
+  color: var(--ifm-color-primary);
+  font-weight: bold;
+  margin-right: 0.5rem;
+}
+
+/* Mermaid diagram container */
+.mermaid {
+  text-align: center;
+  margin: 2rem 0;
+}
+
+/* Code block enhancements */
+.code-block-mermaid {
+  background: #f6f8fa;
+  border-radius: 6px;
+  padding: 1rem;
+  text-align: center;
+}
+
+/* Responsive adjustments */
+@media (max-width: 996px) {
+  .book-content {
+    padding: 0 1rem;
+  }
+}
