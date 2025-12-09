@@ -9,10 +9,11 @@ const config = {
   favicon: 'img/favicon.ico',
 
   // Set the production url of your site here
-  url: 'https://your-organization.github.io',
+  url: 'https://speck-kit-driven-development-humano.vercel.app',
   // Set the /<base>/ pathname under which your site is served
   // For GitHub pages deployment, it is often '/<organization-name>/'
   baseUrl: '/',
+  trailingSlash: true,
 
   // GitHub pages deployment config.
   organizationName: 'your-organization', // Usually your GitHub org/user name.
