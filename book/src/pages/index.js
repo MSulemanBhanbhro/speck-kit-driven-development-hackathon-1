@@ -23,13 +23,14 @@ export default function HomePage() {
                 </a>
               </div>
             </div>
-            <div className={styles.heroBot}>
-              <div className={styles.robotAnimation}>
+            <div className={styles.heroIcon}>
+              <div className={styles.modernRobotIcon}>
                 <div className={styles.robotHead}></div>
                 <div className={styles.robotBody}></div>
                 <div className={styles.robotArm}></div>
                 <div className={styles.robotArm}></div>
                 <div className={styles.robotLight}></div>
+                <div className={styles.robotGlow}></div>
               </div>
             </div>
           </div>

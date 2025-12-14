@@ -11,7 +11,7 @@
 .heroSection {
   background: linear-gradient(135deg, #f8fafc, #e2e8f0);
   color: #1e293b;
-  padding: 100px 20px 80px;
+  padding: 80px 20px;
   min-height: 80vh;
   display: flex;
   align-items: center;
@@ -57,18 +57,18 @@
   flex-wrap: wrap;
 }
 
-/* Animated Robot */
-.heroBot {
+/* Modern Robot Icon */
+.heroIcon {
   display: flex;
   justify-content: center;
   align-items: center;
   position: relative;
 }
 
-.robotAnimation {
+.modernRobotIcon {
   position: relative;
-  width: 200px;
-  height: 250px;
+  width: 180px;
+  height: 220px;
   animation: float 3s ease-in-out infinite;
 }
 
@@ -77,78 +77,80 @@
   top: 0;
   left: 50%;
   transform: translateX(-50%);
-  width: 80px;
-  height: 70px;
-  background: #3b82f6;
+  width: 70px;
+  height: 60px;
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
   border-radius: 50% 50% 40% 40%;
   z-index: 3;
+  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
 }
 
 .robotHead::before {
   content: '';
   position: absolute;
-  top: 25px;
-  left: 20px;
-  width: 12px;
-  height: 12px;
+  top: 20px;
+  left: 16px;
+  width: 10px;
+  height: 10px;
   background: white;
   border-radius: 50%;
-  box-shadow: 24px 0 0 white;
+  box-shadow: 20px 0 0 white;
 }
 
 .robotHead::after {
   content: '';
   position: absolute;
-  top: 45px;
+  top: 38px;
   left: 50%;
   transform: translateX(-50%);
-  width: 30px;
-  height: 5px;
+  width: 25px;
+  height: 4px;
   background: white;
   border-radius: 2px;
 }
 
 .robotBody {
   position: absolute;
-  top: 60px;
+  top: 50px;
   left: 50%;
   transform: translateX(-50%);
-  width: 100px;
-  height: 100px;
-  background: #1e293b;
-  border-radius: 20px;
+  width: 85px;
+  height: 85px;
+  background: linear-gradient(135deg, #1e293b, #0f172a);
+  border-radius: 18px;
   z-index: 2;
+  box-shadow: 0 4px 15px rgba(30, 41, 59, 0.3);
 }
 
 .robotArm {
   position: absolute;
-  top: 70px;
-  width: 15px;
-  height: 70px;
-  background: #1e293b;
-  border-radius: 10px;
+  top: 60px;
+  width: 12px;
+  height: 60px;
+  background: linear-gradient(135deg, #1e293b, #0f172a);
+  border-radius: 8px;
   z-index: 1;
 }
 
 .robotArm:first-child {
-  left: 30px;
+  left: 25px;
   transform-origin: top center;
   animation: wave 2s ease-in-out infinite;
 }
 
 .robotArm:last-child {
-  right: 30px;
+  right: 25px;
   transform-origin: top center;
   animation: wave 2s ease-in-out infinite 0.5s;
 }
 
 .robotLight {
   position: absolute;
-  top: 80px;
+  top: 70px;
   left: 50%;
   transform: translateX(-50%);
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   background: #10b981;
   border-radius: 50%;
   box-shadow: 0 0 15px #10b981;
@@ -156,6 +158,20 @@
   animation: pulse 2s ease-in-out infinite;
 }
 
+.robotGlow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.2) 0%, transparent 70%);
+  animation: glow 4s ease-in-out infinite;
+  z-index: 0;
+}
+
+/* Animations for Modern Robot Icon */
 @keyframes float {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-10px); }
@@ -170,6 +186,11 @@
 @keyframes pulse {
   0%, 100% { opacity: 1; box-shadow: 0 0 15px #10b981; }
   50% { opacity: 0.7; box-shadow: 0 0 25px #10b981; }
+}
+
+@keyframes glow {
+  0%, 100% { opacity: 0.3; transform: translate(-50%, -50%) scale(1); }
+  50% { opacity: 0.6; transform: translate(-50%, -50%) scale(1.2); }
 }
 
 .primaryButton {
@@ -480,22 +501,85 @@
 
 /* Responsive Design */
 @media (max-width: 768px) {
+  .heroSection {
+    padding: 60px 20px;
+    min-height: auto;
+  }
+
   .title {
     font-size: 2.5rem;
+  }
+
+  .subtitle {
+    font-size: 1.1rem;
+    margin-bottom: 30px;
   }
 
   .heroButtons {
     flex-direction: column;
     align-items: center;
+    width: 100%;
+  }
+
+  .primaryButton {
+    width: 100%;
+    max-width: 300px;
+    justify-content: center;
   }
 
   .heroContent {
     grid-template-columns: 1fr;
     gap: 40px;
+    text-align: center;
   }
 
-  .heroBot {
-    justify-content: center;
+  .heroText {
+    order: 2;
+  }
+
+  .heroIcon {
+    order: 1;
+    margin-bottom: 20px;
+  }
+
+  .modernRobotIcon {
+    width: 150px;
+    height: 180px;
+  }
+
+  .robotHead {
+    width: 60px;
+    height: 50px;
+  }
+
+  .robotBody {
+    width: 70px;
+    height: 70px;
+    top: 45px;
+  }
+
+  .robotArm {
+    height: 50px;
+    width: 10px;
+  }
+
+  .robotArm:first-child {
+    left: 20px;
+  }
+
+  .robotArm:last-child {
+    right: 20px;
+  }
+
+  .robotLight {
+    width: 15px;
+    height: 15px;
+    top: 60px;
+  }
+
+  .robotGlow {
+    width: 100px;
+    height: 100px;
   }
 
   .featuresSection,
