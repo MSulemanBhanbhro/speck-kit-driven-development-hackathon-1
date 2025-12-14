@@ -90,9 +90,8 @@ const Chatbot = () => {
     <div className="chatbot">
       {/* Chatbot Toggle Button */}
       {isOpen ? null : (
-        <button className="chatbot-toggle" onClick={toggleChat}>
+        <button className="chatbot-toggle" onClick={toggleChat} aria-label="Open AI Robotics Assistant">
           <div className="chatbot-icon">🤖</div>
-          <span>AI Robotics Assistant</span>
         </button>
       )}
 
