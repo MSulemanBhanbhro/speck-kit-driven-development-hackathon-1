@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npx docusaurus build)"
+      "Bash(npx docusaurus build)",
+      "Bash(npm start)"
     ]
   }
 }

@@ -4,9 +4,9 @@
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
-  title: 'Physical AI & Humanoid Robotics',
-  tagline: 'Comprehensive guide to robotics, AI, and humanoid development',
-  favicon: 'img/favicon.ico',
+  title: 'AI Robotics Book',
+  tagline: 'Comprehensive guide to Physical AI, Humanoid Robotics, ROS 2, Gazebo, NVIDIA Isaac',
+  favicon: 'img/logo.png',
 
   // Set the production url of your site here
   url: 'https://speck-kit-driven-development-humano.vercel.app',
@@ -16,8 +16,8 @@ const config = {
   trailingSlash: true,
 
   // GitHub pages deployment config.
-  organizationName: 'your-organization', // Usually your GitHub org/user name.
-  projectName: 'your-website', // Usually your repo name.
+  organizationName: 'ai-robotics-book', // Usually your GitHub org/user name.
+  projectName: 'ai-robotics-book', // Usually your repo name.
 
   onBrokenLinks: 'warn',
   onBrokenMarkdownLinks: 'warn',
@@ -79,9 +79,9 @@ const config = {
       // Replace with your project's social card
       image: 'img/docusaurus-social-card.jpg',
       navbar: {
-        title: 'Physical AI & Humanoid Robotics',
+        title: 'AI Robotics',
         logo: {
-          alt: 'ROS 2 Book Logo',
+          alt: 'AI Robotics Book Logo',
           src: 'img/logo.png',
         },
         items: [
@@ -89,7 +89,7 @@ const config = {
             type: 'docSidebar',
             sidebarId: 'tutorial',
             position: 'left',
-            label: 'Tutorial',
+            label: 'Content',
           },
           {
             href: 'https://github.com/ros2',
