@@ -2,7 +2,12 @@
   "permissions": {
     "allow": [
       "Bash(npx docusaurus build)",
-      "Bash(npm start)"
+      "Bash(npm start)",
+      "Bash(powershell -ExecutionPolicy Bypass -File \".specify/scripts/powershell/check-prerequisites.ps1\" -Json -RequireTasks -IncludeTasks)",
+      "Bash(if Test-Path \"C:\\Users\\Fc\\Desktop\\hackathon\\specs\\001-ros2-book-module\\checklists\")",
+      "Bash(then Get-ChildItem \"C:\\Users\\Fc\\Desktop\\hackathon\\specs\\001-ros2-book-module\\checklists\" -Name)",
+      "Bash(else Write-Host \"No checklists directory found\")",
+      "Bash(fi)"
     ]
   }
 }

@@ -1,0 +1,672 @@
+---
+sidebar_position: 1
+---
+
+# Multi-Robot Coordination and Communication
+
+Multi-robot systems represent a significant advancement in robotics, enabling complex tasks that would be impossible for single robots. This chapter explores the techniques and methodologies for implementing effective coordination and communication between multiple robots in simulation environments, with applications to humanoid robotics.
+
+## Fundamentals of Multi-Robot Systems
+
+### System Architecture
+
+Multi-robot systems require careful architectural planning to ensure effective coordination:
+
+#### Centralized vs. Decentralized Control
+
+**Centralized Control:**
+- Single coordinator manages all robots
+- Complete system state visibility
+- Potential bottleneck and single point of failure
+- Suitable for small teams with simple coordination
+
+**Decentralized Control:**
+- Each robot makes local decisions
+- Distributed decision-making
+- More robust to individual robot failures
+- Better scalability for large teams
+
+```xml
+<!-- Centralized control world configuration -->
+<world name="centralized_multi_robot">
+  <physics type="ode">
+    <max_step_size>0.001</max_step_size>
+    <real_time_update_rate>1000</real_time_update_rate>
+  </physics>
+
+  <!-- Coordinator robot -->
+  <include>
+    <uri>model://coordinator_robot</uri>
+    <name>coordinator</name>
+    <pose>0 0 0.5 0 0 0</pose>
+  </include>
+
+  <!-- Team robots -->
+  <include>
+    <uri>model://team_robot</uri>
+    <name>robot1</name>
+    <pose>1 0 0.5 0 0 0</pose>
+  </include>
+  <include>
+    <uri>model://team_robot</uri>
+    <name>robot2</name>
+    <pose>-1 0 0.5 0 0 0</pose>
+  </include>
+  <include>
+    <uri>model://team_robot</uri>
+    <name>robot3</name>
+    <pose>0 1 0.5 0 0 0</pose>
+  </include>
+</world>
+```
+
+### Communication Topologies
+
+#### Star Topology
+- All robots communicate through a central hub
+- Simple to implement and manage
+- Vulnerable to hub failure
+
+#### Mesh Topology
+- Robots communicate directly with neighbors
+- Robust to individual robot failures
+- More complex routing and coordination
+
+#### Ring Topology
+- Each robot communicates with adjacent neighbors
+- Balanced between complexity and robustness
+- Sequential communication patterns
+
+## Multi-Robot Communication in Gazebo
+
+### ROS/ROS2 Communication Patterns
+
+#### Topic-Based Communication
+
+```cpp
+// Publisher for robot status
+ros::Publisher status_pub = nh.advertise<robot_msgs::Status>(
+    "/multi_robot/status", 10);
+
+// Subscriber for team coordination
+ros::Subscriber coord_sub = nh.subscribe("/multi_robot/coordination",
+    10, &RobotController::coordinationCallback, this);
+
+// Message structure for multi-robot communication
+robot_msgs::Status status_msg;
+status_msg.robot_id = robot_id;
+status_msg.position = current_position;
+status_msg.task_status = current_task;
+status_msg.battery_level = battery_level;
+status_pub.publish(status_msg);
+```
+
+#### Service-Based Communication
+
+```cpp
+// Service for task allocation
+ros::ServiceServer task_service = nh.advertiseService(
+    "/multi_robot/allocate_task", &MultiRobotManager::allocateTask, this);
+
+// Service client for requesting information
+ros::ServiceClient info_client = nh.serviceClient<robot_msgs::RobotInfo>(
+    "/multi_robot/get_robot_info");
+```
+
+### Custom Communication Plugins
+
+```cpp
+// Custom multi-robot communication plugin
+#include <gazebo/gazebo.hh>
+#include <gazebo/physics/physics.hh>
+
+namespace gazebo
+{
+  class MultiRobotCommPlugin : public WorldPlugin
+  {
+    public: void Load(physics::WorldPtr _world, sdf::ElementPtr _sdf)
+    {
+      this->world = _world;
+
+      // Initialize communication infrastructure
+      this->node = transport::NodePtr(new transport::Node());
+      this->node->Init(this->world->Name());
+
+      // Subscribe to robot status updates
+      this->statusSub = this->node->Subscribe("~/robot_status",
+          &MultiRobotCommPlugin::OnRobotStatus, this);
+
+      // Publish coordination messages
+      this->coordPub = this->node->Advertise<msgs::StringMsg>("~/coordination");
+
+      // Connect to physics update
+      this->updateConnection = event::Events::ConnectWorldUpdateBegin(
+          boost::bind(&MultiRobotCommPlugin::OnUpdate, this));
+    }
+
+    private: void OnRobotStatus(ConstStringMsgPtr &_msg)
+    {
+      // Process robot status and update coordination state
+      std::string robot_data = _msg->data();
+      // Parse and store robot information
+    }
+
+    private: void OnUpdate()
+    {
+      // Implement coordination logic
+      this->updateCoordination();
+    }
+
+    private: physics::WorldPtr world;
+    private: transport::NodePtr node;
+    private: transport::SubscriberPtr statusSub;
+    private: transport::PublisherPtr coordPub;
+    private: event::ConnectionPtr updateConnection;
+  };
+
+  GZ_REGISTER_WORLD_PLUGIN(MultiRobotCommPlugin)
+}
+```
+
+## Coordination Algorithms
+
+### Formation Control
+
+Formation control maintains geometric relationships between robots:
+
+```cpp
+class FormationController
+{
+  public:
+    FormationController() : nh("~")
+    {
+      // Initialize formation parameters
+      nh.param<std::string>("formation_type", formation_type, "line");
+      nh.param<double>("inter_robot_distance", inter_distance, 1.0);
+
+      // Subscribe to neighbor positions
+      neighbor_sub = nh.subscribe("/multi_robot/positions", 10,
+          &FormationController::neighborCallback, this);
+
+      // Publish formation commands
+      command_pub = nh.advertise<geometry_msgs::Twist>("/cmd_vel", 10);
+    }
+
+  private:
+    void neighborCallback(const robot_msgs::MultiRobotPositions::ConstPtr& msg)
+    {
+      // Calculate desired position based on formation
+      geometry_msgs::Point desired_pos = calculateFormationPosition(msg);
+
+      // Generate velocity commands
+      geometry_msgs::Twist cmd = generateVelocityCommand(desired_pos);
+      command_pub.publish(cmd);
+    }
+
+    geometry_msgs::Point calculateFormationPosition(
+        const robot_msgs::MultiRobotPositions::ConstPtr& msg)
+    {
+      // Formation-specific calculation logic
+      geometry_msgs::Point desired_pos;
+
+      if (formation_type == "line")
+      {
+        // Line formation: robots positioned in a line
+        desired_pos.x = leader_pos.x + inter_distance * robot_index;
+        desired_pos.y = leader_pos.y;
+      }
+      else if (formation_type == "circle")
+      {
+        // Circle formation: robots positioned in a circle
+        double angle = 2 * M_PI * robot_index / total_robots;
+        desired_pos.x = center.x + radius * cos(angle);
+        desired_pos.y = center.y + radius * sin(angle);
+      }
+
+      return desired_pos;
+    }
+
+  private:
+    ros::NodeHandle nh;
+    ros::Subscriber neighbor_sub;
+    ros::Publisher command_pub;
+    std::string formation_type;
+    double inter_distance;
+    int robot_index;
+    int total_robots;
+};
+```
+
+### Task Allocation
+
+Distributed task allocation algorithms assign tasks efficiently:
+
+```cpp
+class TaskAllocator
+{
+  public:
+    TaskAllocator() : nh("~")
+    {
+      // Subscribe to task requests and robot capabilities
+      task_sub = nh.subscribe("/multi_robot/tasks", 10,
+          &TaskAllocator::taskCallback, this);
+
+      capability_sub = nh.subscribe("/multi_robot/capabilities", 10,
+          &TaskAllocator::capabilityCallback, this);
+
+      allocation_pub = nh.advertise<robot_msgs::TaskAllocation>(
+          "/multi_robot/task_allocation", 10);
+    }
+
+  private:
+    void taskCallback(const robot_msgs::TaskList::ConstPtr& msg)
+    {
+      // Implement task allocation algorithm
+      std::vector<TaskAssignment> assignments = allocateTasks(msg->tasks);
+
+      // Publish assignments
+      robot_msgs::TaskAllocation allocation_msg;
+      allocation_msg.assignments = assignments;
+      allocation_pub.publish(allocation_msg);
+    }
+
+    std::vector<TaskAssignment> allocateTasks(const std::vector<Task>& tasks)
+    {
+      // Example: Auction-based task allocation
+      std::vector<TaskAssignment> assignments;
+
+      for (const auto& task : tasks)
+      {
+        // Calculate cost for each robot to perform task
+        std::map<int, double> robot_costs;
+        for (const auto& robot : available_robots)
+        {
+          double cost = calculateTaskCost(robot, task);
+          robot_costs[robot.id] = cost;
+        }
+
+        // Assign to robot with minimum cost
+        int best_robot = std::min_element(robot_costs.begin(), robot_costs.end(),
+            [](const auto& a, const auto& b) { return a.second < b.second; })->first;
+
+        TaskAssignment assignment;
+        assignment.robot_id = best_robot;
+        assignment.task_id = task.id;
+        assignments.push_back(assignment);
+      }
+
+      return assignments;
+    }
+
+  private:
+    ros::NodeHandle nh;
+    ros::Subscriber task_sub;
+    ros::Subscriber capability_sub;
+    ros::Publisher allocation_pub;
+    std::vector<Robot> available_robots;
+};
+```
+
+## Multi-Robot Simulation Scenarios
+
+### Search and Rescue
+
+```xml
+<!-- Search and rescue world configuration -->
+<world name="search_rescue_scenario">
+  <physics type="ode">
+    <max_step_size>0.001</max_step_size>
+    <real_time_update_rate>1000</real_time_update_rate>
+  </physics>
+
+  <!-- Environment with obstacles -->
+  <include>
+    <uri>model://ground_plane</uri>
+  </include>
+  <include>
+    <uri>model://sun</uri>
+  </include>
+
+  <!-- Search area with obstacles -->
+  <model name="obstacle_1">
+    <static>true</static>
+    <link name="link">
+      <collision name="collision">
+        <geometry><box><size>2 0.5 1</size></box></geometry>
+      </collision>
+      <visual name="visual">
+        <geometry><box><size>2 0.5 1</size></box></geometry>
+      </visual>
+    </link>
+    <pose>5 5 0.5 0 0 0</pose>
+  </model>
+
+  <!-- Rescue robots -->
+  <include>
+    <uri>model://rescue_robot</uri>
+    <name>rescue1</name>
+    <pose>0 0 0.5 0 0 0</pose>
+  </include>
+  <include>
+    <uri>model://rescue_robot</uri>
+    <name>rescue2</name>
+    <pose>1 0 0.5 0 0 0</pose>
+  </include>
+  <include>
+    <uri>model://rescue_robot</uri>
+    <name>rescue3</name>
+    <pose>-1 0 0.5 0 0 0</pose>
+  </include>
+
+  <!-- Victim models -->
+  <model name="victim_1">
+    <static>true</static>
+    <link name="link">
+      <visual name="visual">
+        <geometry><cylinder><radius>0.1</radius><length>0.8</length></cylinder></geometry>
+      </visual>
+    </link>
+    <pose>8 8 0.4 0 0 0</pose>
+  </model>
+</world>
+```
+
+### Cooperative Manipulation
+
+```xml
+<!-- Cooperative manipulation scenario -->
+<world name="cooperative_manipulation">
+  <physics type="ode">
+    <max_step_size>0.001</max_step_size>
+    <real_time_update_rate>1000</real_time_update_rate>
+  </physics>
+
+  <!-- Heavy object requiring multiple robots -->
+  <model name="heavy_object">
+    <static>false</static>
+    <link name="object_link">
+      <inertial>
+        <mass value="10.0"/>
+        <inertia ixx="1.0" ixy="0" ixz="0" iyy="1.0" iyz="0" izz="1.0"/>
+      </inertial>
+      <collision name="collision">
+        <geometry><box><size>1.0 0.5 0.2</size></box></geometry>
+      </collision>
+      <visual name="visual">
+        <geometry><box><size>1.0 0.5 0.2</size></box></geometry>
+      </visual>
+    </link>
+    <pose>0 0 0.1 0 0 0</pose>
+  </model>
+
+  <!-- Manipulation robots -->
+  <include>
+    <uri>model://manipulator_robot</uri>
+    <name>manipulator1</name>
+    <pose>-1.5 0 0.5 0 0 0</pose>
+  </include>
+  <include>
+    <uri>model://manipulator_robot</uri>
+    <name>manipulator2</name>
+    <pose>1.5 0 0.5 0 0 0</pose>
+  </include>
+</world>
+```
+
+## Humanoid-Specific Multi-Robot Coordination
+
+### Humanoid Team Coordination
+
+Humanoid robots in teams require specialized coordination approaches:
+
+```cpp
+// Humanoid-specific coordination
+class HumanoidTeamCoordinator
+{
+  public:
+    HumanoidTeamCoordinator() : nh("~")
+    {
+      // Humanoid-specific topics
+      balance_sub = nh.subscribe("/multi_robot/balance_states", 10,
+          &HumanoidTeamCoordinator::balanceCallback, this);
+
+      formation_sub = nh.subscribe("/multi_robot/humanoid_formation", 10,
+          &HumanoidTeamCoordinator::formationCallback, this);
+    }
+
+  private:
+    void balanceCallback(const robot_msgs::BalanceStates::ConstPtr& msg)
+    {
+      // Monitor team balance states
+      for (const auto& balance_state : msg->states)
+      {
+        if (balance_state.com_x > safety_threshold)
+        {
+          // Adjust formation to maintain team stability
+          adjustFormationForBalance(balance_state.robot_id);
+        }
+      }
+    }
+
+    void adjustFormationForBalance(int robot_id)
+    {
+      // Adjust formation to compensate for balance issues
+      // Move other robots to provide support
+    }
+
+  private:
+    ros::NodeHandle nh;
+    ros::Subscriber balance_sub;
+    ros::Subscriber formation_sub;
+    double safety_threshold = 0.1;  // Balance threshold
+};
+```
+
+### Social Coordination
+
+Humanoid robots may need to coordinate based on social behaviors:
+
+```cpp
+// Social coordination behaviors
+class SocialCoordinator
+{
+  public:
+    SocialCoordinator() : nh("~")
+    {
+      interaction_sub = nh.subscribe("/multi_robot/social_interactions", 10,
+          &SocialCoordinator::interactionCallback, this);
+    }
+
+  private:
+    void interactionCallback(const robot_msgs::SocialInteraction::ConstPtr& msg)
+    {
+      // Handle social coordination
+      switch (msg->interaction_type)
+      {
+        case GREETING:
+          adjustFormationForGreeting(msg->robot_ids);
+          break;
+        case FOLLOWING:
+          implementFollowingBehavior(msg->leader_id, msg->follower_ids);
+          break;
+        case HELPING:
+          coordinateHelpingBehavior(msg->helper_ids, msg->recipient_id);
+          break;
+      }
+    }
+
+  private:
+    ros::NodeHandle nh;
+    ros::Subscriber interaction_sub;
+};
+```
+
+## Performance Optimization for Multi-Robot Systems
+
+### Communication Efficiency
+
+Optimize communication for large teams:
+
+```cpp
+// Efficient communication strategies
+class EfficientCommunicator
+{
+  public:
+    EfficientCommunicator()
+    {
+      // Implement communication scheduling
+      communication_timer = nh.createTimer(ros::Duration(0.1),
+          &EfficientCommunicator::scheduledCommunication, this);
+
+      // Implement data compression
+      compression_enabled = true;
+    }
+
+  private:
+    void scheduledCommunication(const ros::TimerEvent& event)
+    {
+      // Send updates only when necessary
+      if (position_changed_significantly() || state_changed())
+      {
+        publishUpdates();
+      }
+    }
+
+    void publishUpdates()
+    {
+      // Compress and send only relevant information
+      robot_msgs::CompressedState compressed_msg;
+      compressed_msg.position = compressPosition(current_position);
+      compressed_msg.velocity = compressVelocity(current_velocity);
+      compressed_msg.timestamp = ros::Time::now();
+
+      compressed_pub.publish(compressed_msg);
+    }
+
+  private:
+    ros::Timer communication_timer;
+    ros::Publisher compressed_pub;
+    bool compression_enabled;
+};
+```
+
+### Load Balancing
+
+Distribute computational load across robots:
+
+```cpp
+// Load balancing strategies
+class LoadBalancer
+{
+  public:
+    LoadBalancer()
+    {
+      // Monitor computational load on each robot
+      load_monitor_timer = nh.createTimer(ros::Duration(1.0),
+          &LoadBalancer::monitorLoad, this);
+    }
+
+  private:
+    void monitorLoad(const ros::TimerEvent& event)
+    {
+      // Calculate current load on each robot
+      std::map<int, double> robot_loads = calculateRobotLoads();
+
+      // Reassign tasks based on load
+      redistributeTasks(robot_loads);
+    }
+
+    void redistributeTasks(const std::map<int, double>& loads)
+    {
+      // Move tasks from heavily loaded robots to lightly loaded ones
+      for (const auto& load : loads)
+      {
+        if (load.second > load_threshold)
+        {
+          // Find robot with lower load
+          int recipient = findLightlyLoadedRobot();
+          if (recipient != -1)
+          {
+            // Transfer some tasks
+            transferTasks(load.first, recipient);
+          }
+        }
+      }
+    }
+
+  private:
+    ros::Timer load_monitor_timer;
+    double load_threshold = 0.8;  // 80% threshold
+};
+```
+
+## Validation and Testing
+
+### Multi-Robot System Validation
+
+Test multi-robot coordination thoroughly:
+
+```cpp
+// Multi-robot system validation tests
+class MultiRobotValidator
+{
+  public:
+    void validateCoordination()
+    {
+      // Test formation maintenance
+      testFormationMaintenance();
+
+      // Test task allocation efficiency
+      testTaskAllocation();
+
+      // Test communication reliability
+      testCommunicationReliability();
+
+      // Test failure scenarios
+      testFailureScenarios();
+    }
+
+  private:
+    void testFormationMaintenance()
+    {
+      // Verify formation is maintained under various conditions
+      // Check distances, timing, and stability
+    }
+
+    void testTaskAllocation()
+    {
+      // Verify tasks are allocated efficiently
+      // Check for conflicts and optimal assignments
+    }
+
+    void testCommunicationReliability()
+    {
+      // Test communication under various network conditions
+      // Simulate packet loss and delays
+    }
+
+    void testFailureScenarios()
+    {
+      // Test system behavior when robots fail
+      // Verify graceful degradation
+    }
+};
+```
+
+## Best Practices
+
+### Design Considerations
+
+1. **Scalability**: Design systems that can handle varying numbers of robots
+2. **Robustness**: Implement fault-tolerant coordination algorithms
+3. **Efficiency**: Optimize communication and computation for real-time performance
+4. **Modularity**: Design components that can be reused across different scenarios
+
+### Implementation Guidelines
+
+1. **Start Simple**: Begin with basic coordination and add complexity gradually
+2. **Monitor Performance**: Continuously monitor communication and computational overhead
+3. **Validate Thoroughly**: Test coordination algorithms under various conditions
+4. **Document Assumptions**: Clearly document coordination assumptions and limitations
+
+Multi-robot coordination and communication represent advanced capabilities that enable complex robotic systems. By implementing these techniques properly, you can create sophisticated multi-robot systems capable of performing complex tasks that would be impossible for individual robots.

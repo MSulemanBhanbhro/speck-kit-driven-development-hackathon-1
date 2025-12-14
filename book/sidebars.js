@@ -68,6 +68,47 @@ const config = {
         'module1/chapter4-advanced-communication-patterns/lifecycle-nodes',
         'module1/troubleshooting'
       ],
+    },
+    'module2/intro',
+    {
+      type: 'category',
+      label: 'Module 2: The Virtual Robotics Laboratory (Gazebo & Simulation)',
+      items: [
+        'module2/chapter1-simulation-fundamentals/simulation-fundamentals',
+        'module2/chapter1-simulation-fundamentals/physics-concept',
+        'module2/chapter1-simulation-fundamentals/sensors-concept',
+        'module2/chapter1-simulation-fundamentals/environment-concept',
+        'module2/chapter2-gazebo-environment/gazebo-environment',
+        {
+          type: 'category',
+          label: 'Environment Setup and Configuration',
+          items: [
+            'module2/chapter2-gazebo-environment/sub-chapters/environment-setup',
+            'module2/chapter2-gazebo-environment/sub-chapters/world-building',
+            'module2/chapter2-gazebo-environment/sub-chapters/model-integration'
+          ]
+        },
+        'module2/chapter3-robot-modeling/robot-modeling',
+        {
+          type: 'category',
+          label: 'Modeling Fundamentals',
+          items: [
+            'module2/chapter3-robot-modeling/sub-chapters/urdf-fundamentals',
+            'module2/chapter3-robot-modeling/sub-chapters/sensors-controllers',
+            'module2/chapter3-robot-modeling/sub-chapters/model-validation'
+          ]
+        },
+        'module2/chapter4-advanced-techniques/advanced-techniques',
+        {
+          type: 'category',
+          label: 'Advanced Techniques',
+          items: [
+            'module2/chapter4-advanced-techniques/sub-chapters/multi-robot-coordination',
+            'module2/chapter4-advanced-techniques/sub-chapters/physics-tuning',
+            'module2/chapter4-advanced-techniques/sub-chapters/performance-optimization'
+          ]
+        }
+      ],
     }
   ],
 };

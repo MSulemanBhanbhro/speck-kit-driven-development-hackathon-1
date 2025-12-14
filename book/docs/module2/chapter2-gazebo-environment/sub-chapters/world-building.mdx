@@ -1,0 +1,522 @@
+---
+sidebar_position: 2
+---
+
+# World Building and Model Integration
+
+Creating realistic simulation environments requires careful construction of 3D worlds and proper integration of robot models, objects, and environmental elements. This chapter covers the essential techniques for building comprehensive Gazebo environments for humanoid robotics applications.
+
+## World Design Principles
+
+### Environmental Realism
+
+Creating realistic environments is crucial for effective simulation:
+- **Scale Accuracy**: Maintain proper proportions between objects and spaces
+- **Material Properties**: Use realistic textures and physical properties
+- **Lighting Conditions**: Simulate natural and artificial lighting scenarios
+- **Environmental Dynamics**: Include moving elements and changing conditions
+
+### Navigation Considerations
+
+Design environments with robot navigation in mind:
+- **Clear Pathways**: Ensure sufficient space for humanoid robot movement
+- **Obstacle Placement**: Position obstacles at realistic heights and locations
+- **Surface Variations**: Include different floor types and terrain features
+- **Accessibility**: Consider door widths, ramp angles, and step heights
+
+## Creating Custom World Files
+
+### Basic World Structure
+
+A Gazebo world file follows the SDF (Simulation Description Format) structure:
+
+```xml
+<?xml version="1.0" ?>
+<sdf version="1.7">
+  <world name="custom_environment">
+    <!-- World properties -->
+    <physics type="ode">
+      <max_step_size>0.001</max_step_size>
+      <real_time_update_rate>1000</real_time_update_rate>
+      <gravity>0 0 -9.8</gravity>
+    </physics>
+
+    <!-- Include standard models -->
+    <include>
+      <uri>model://ground_plane</uri>
+    </include>
+    <include>
+      <uri>model://sun</uri>
+    </include>
+
+    <!-- Custom environment elements -->
+    <model name="environment_walls">
+      <!-- Wall definitions -->
+    </model>
+
+    <!-- Robot placement -->
+    <include>
+      <uri>model://my_robot</uri>
+      <pose>0 0 0.5 0 0 0</pose>
+    </include>
+  </world>
+</sdf>
+```
+
+### Ground Plane Configuration
+
+Configure the ground plane with appropriate properties:
+
+```xml
+<model name="ground_plane">
+  <static>true</static>
+  <link name="link">
+    <collision name="collision">
+      <pose>0 0 0 0 0 0</pose>
+      <geometry>
+        <plane>
+          <normal>0 0 1</normal>
+          <size>100 100</size>
+        </plane>
+      </geometry>
+      <surface>
+        <friction>
+          <ode>
+            <mu>1.0</mu>
+            <mu2>1.0</mu2>
+          </ode>
+        </friction>
+        <bounce>
+          <restitution_coefficient>0.0</restitution_coefficient>
+          <threshold>100000</threshold>
+        </bounce>
+        <contact>
+          <ode>
+            <soft_cfm>0</soft_cfm>
+            <soft_erp>0.2</soft_erp>
+            <kp>1e+10</kp>
+            <kd>1</kd>
+            <max_vel>0.01</max_vel>
+            <min_depth>0</min_depth>
+          </ode>
+        </contact>
+      </surface>
+    </collision>
+    <visual name="visual">
+      <cast_shadows>false</cast_shadows>
+      <geometry>
+        <plane>
+          <normal>0 0 1</normal>
+          <size>100 100</size>
+        </plane>
+      </geometry>
+      <material>
+        <script>
+          <uri>file://media/materials/scripts/gazebo.material</uri>
+          <name>Gazebo/Grey</name>
+        </script>
+      </material>
+    </visual>
+  </link>
+</model>
+```
+
+## Building Complex Environments
+
+### Room and Building Construction
+
+Create indoor environments with walls, doors, and furniture:
+
+```xml
+<!-- Room with walls -->
+<model name="room_structure">
+  <static>true</static>
+
+  <!-- Front wall -->
+  <link name="front_wall">
+    <collision name="collision">
+      <geometry>
+        <box><size>10 0.2 3</size></box>
+      </geometry>
+    </collision>
+    <visual name="visual">
+      <geometry>
+        <box><size>10 0.2 3</size></box>
+      </geometry>
+      <material>
+        <script>
+          <uri>file://media/materials/scripts/gazebo.material</uri>
+          <name>Gazebo/White</name>
+        </script>
+      </material>
+    </visual>
+    <pose>0 -5 1.5 0 0 0</pose>
+  </link>
+
+  <!-- Side walls -->
+  <link name="left_wall">
+    <collision name="collision">
+      <geometry>
+        <box><size>0.2 10 3</size></box>
+      </geometry>
+    </collision>
+    <visual name="visual">
+      <geometry>
+        <box><size>0.2 10 3</size></box>
+      </geometry>
+      <material>
+        <script>
+          <uri>file://media/materials/scripts/gazebo.material</uri>
+          <name>Gazebo/White</name>
+        </script>
+      </material>
+    </visual>
+    <pose>-5 0 1.5 0 0 0</pose>
+  </link>
+
+  <!-- Door opening -->
+  <link name="door_frame">
+    <collision name="collision">
+      <geometry>
+        <box><size>0.2 2 2</size></box>
+      </geometry>
+    </collision>
+    <visual name="visual">
+      <geometry>
+        <box><size>0.2 2 2</size></box>
+      </geometry>
+      <material>
+        <script>
+          <uri>file://media/materials/scripts/gazebo.material</uri>
+          <name>Gazebo/Wood</name>
+        </script>
+      </material>
+    </visual>
+    <pose>4 -2 1.5 0 0 0</pose>
+  </link>
+</model>
+```
+
+### Outdoor Environment Elements
+
+Create outdoor environments with terrain and natural elements:
+
+```xml
+<!-- Terrain model -->
+<model name="terrain">
+  <static>true</static>
+  <link name="terrain_link">
+    <collision name="collision">
+      <geometry>
+        <mesh>
+          <uri>model://terrain/meshes/terrain.dae</uri>
+        </mesh>
+      </geometry>
+    </collision>
+    <visual name="visual">
+      <geometry>
+        <mesh>
+          <uri>model://terrain/meshes/terrain.dae</uri>
+        </mesh>
+      </geometry>
+      <material>
+        <script>
+          <uri>file://media/materials/scripts/gazebo.material</uri>
+          <name>Gazebo/Dirt</name>
+        </script>
+      </material>
+    </visual>
+  </link>
+</model>
+
+<!-- Trees and vegetation -->
+<model name="tree_1">
+  <static>true</static>
+  <include>
+    <uri>model://tree</uri>
+  </include>
+  <pose>5 5 0 0 0 0</pose>
+</model>
+```
+
+## Model Integration Techniques
+
+### Importing 3D Models
+
+Integrate custom 3D models into your environment:
+
+```xml
+<!-- Custom furniture model -->
+<model name="custom_table">
+  <static>true</static>
+  <link name="table_top">
+    <collision name="collision">
+      <geometry>
+        <box><size>1.5 0.8 0.02</size></box>
+      </geometry>
+    </collision>
+    <visual name="visual">
+      <geometry>
+        <box><size>1.5 0.8 0.02</size></box>
+      </geometry>
+      <material>
+        <script>
+          <uri>file://media/materials/scripts/gazebo.material</uri>
+          <name>Gazebo/Wood</name>
+        </script>
+      </material>
+    </visual>
+    <pose>0 0 0.75 0 0 0</pose>
+  </link>
+
+  <link name="table_leg_1">
+    <collision name="collision">
+      <geometry>
+        <cylinder>
+          <radius>0.05</radius>
+          <length>0.74</length>
+        </cylinder>
+      </geometry>
+    </collision>
+    <visual name="visual">
+      <geometry>
+        <cylinder>
+          <radius>0.05</radius>
+          <length>0.74</length>
+        </cylinder>
+      </geometry>
+      <material>
+        <script>
+          <uri>file://media/materials/scripts/gazebo.material</uri>
+          <name>Gazebo/Wood</name>
+        </script>
+      </material>
+    </visual>
+    <pose>-0.7 -0.35 0.37 0 0 0</pose>
+  </link>
+
+  <!-- Additional legs... -->
+</model>
+```
+
+### Model Database Integration
+
+Use Gazebo's model database effectively:
+
+```xml
+<!-- Include models from database -->
+<include>
+  <uri>model://ground_plane</uri>
+</include>
+
+<include>
+  <uri>model://sun</uri>
+</include>
+
+<include>
+  <uri>model://cylinder</uri>
+  <pose>2 2 0.5 0 0 0</pose>
+  <name>cylinder_1</name>
+</include>
+
+<include>
+  <uri>model://box</uri>
+  <pose>-2 -2 0.5 0 0 0</pose>
+  <name>box_1</name>
+</include>
+```
+
+## Advanced World Features
+
+### Dynamic Elements
+
+Create environments with moving elements:
+
+```xml
+<!-- Moving door -->
+<model name="movable_door">
+  <link name="door_panel">
+    <collision name="collision">
+      <geometry>
+        <box><size>0.02 1.0 2.0</size></box>
+      </geometry>
+    </collision>
+    <visual name="visual">
+      <geometry>
+        <box><size>0.02 1.0 2.0</size></box>
+      </geometry>
+      <material>
+        <script>
+          <uri>file://media/materials/scripts/gazebo.material</uri>
+          <name>Gazebo/Wood</name>
+        </script>
+      </material>
+    </visual>
+    <pose>4 -1.5 1.0 0 0 0</pose>
+  </link>
+
+  <!-- Hinge joint for door -->
+  <joint name="door_hinge" type="revolute">
+    <parent>world</parent>
+    <child>door_panel</child>
+    <axis>
+      <xyz>0 0 1</xyz>
+      <limit>
+        <lower>-1.57</lower>
+        <upper>0</upper>
+      </limit>
+    </axis>
+    <pose>4 -2 1 0 0 0</pose>
+  </joint>
+</model>
+```
+
+### Sensor Integration in Environments
+
+Place sensors throughout the environment for realistic perception:
+
+```xml
+<!-- Environmental camera -->
+<model name="environment_camera">
+  <static>true</static>
+  <link name="camera_link">
+    <visual name="visual">
+      <geometry>
+        <sphere><radius>0.05</radius></sphere>
+      </geometry>
+    </visual>
+    <sensor name="env_camera" type="camera">
+      <pose>0 0 0 0 0 0</pose>
+      <camera name="env_camera">
+        <horizontal_fov>1.047</horizontal_fov>
+        <image>
+          <width>640</width>
+          <height>480</height>
+        </image>
+        <clip>
+          <near>0.1</near>
+          <far>10</far>
+        </clip>
+      </camera>
+      <plugin name="camera_controller" filename="libgazebo_ros_camera.so">
+        <frame_name>env_camera_optical_frame</frame_name>
+        <topic_name>environment_camera/image_raw</topic_name>
+      </plugin>
+    </sensor>
+  </link>
+  <pose>0 5 2 0 0 0</pose>
+</model>
+```
+
+## World Optimization Strategies
+
+### Performance Considerations
+
+Optimize your world for better performance:
+
+1. **Collision vs. Visual Geometry**: Use simpler collision geometry than visual geometry
+2. **Static vs. Dynamic**: Mark immovable objects as static
+3. **Model Simplification**: Use simplified models for distant objects
+4. **Texture Compression**: Use compressed textures where possible
+
+### Memory Management
+
+```xml
+<!-- Efficient model definition -->
+<model name="optimized_model">
+  <static>true</static>
+
+  <!-- Use simple collision geometry -->
+  <link name="main_body">
+    <collision name="collision">
+      <geometry>
+        <box><size>1.0 1.0 1.0</size></box>  <!-- Simple box instead of complex mesh -->
+      </geometry>
+    </collision>
+
+    <!-- Detailed visual geometry -->
+    <visual name="visual">
+      <geometry>
+        <mesh><uri>model://optimized_model/meshes/detailed.dae</uri></mesh>
+      </geometry>
+    </visual>
+  </link>
+</model>
+```
+
+## Modular World Design
+
+### Reusable Components
+
+Create modular world components that can be reused:
+
+```xml
+<!-- Modular room template -->
+<model name="room_template">
+  <static>true</static>
+
+  <!-- Define room dimensions as parameters -->
+  <link name="wall_front">
+    <collision name="collision">
+      <geometry>
+        <box><size>10 0.2 3</size></box>
+      </geometry>
+    </collision>
+    <visual name="visual">
+      <geometry>
+        <box><size>10 0.2 3</size></box>
+      </geometry>
+    </visual>
+  </link>
+
+  <!-- Other walls... -->
+</model>
+```
+
+### Parameterized Environments
+
+Create environments that can be easily customized:
+
+```xml
+<!-- Parameterized lighting -->
+<light name="main_light" type="directional">
+  <pose>0 0 10 0 0 0</pose>
+  <diffuse>0.8 0.8 0.8 1</diffuse>
+  <direction>-0.3 0.3 -1.0</direction>
+</light>
+
+<!-- Parameterized fog -->
+<scene>
+  <fog type="linear">
+    <color>0.8 0.8 0.8 1</color>
+    <start>1</start>
+    <end>100</end>
+  </fog>
+</scene>
+```
+
+## Best Practices for World Building
+
+### Organization and Naming
+
+- Use consistent naming conventions for models and elements
+- Group related elements logically in the world file
+- Document custom parameters and their purposes
+- Version control your world files
+
+### Testing and Validation
+
+- Test environments with different robot models
+- Validate collision detection accuracy
+- Check performance under various conditions
+- Verify sensor data quality in the environment
+
+### Documentation
+
+Maintain clear documentation for your environments:
+- Purpose and use cases
+- Special features and configurations
+- Known limitations and issues
+- Performance characteristics
+
+World building and model integration are fundamental skills for creating effective simulation environments. By following these techniques and best practices, you can create realistic and efficient environments suitable for humanoid robotics development and testing.
